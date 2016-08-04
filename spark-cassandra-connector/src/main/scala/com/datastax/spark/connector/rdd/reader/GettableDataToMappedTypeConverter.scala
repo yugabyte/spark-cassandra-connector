@@ -2,6 +2,7 @@ package com.datastax.spark.connector.rdd.reader
 
 import java.lang.reflect.Method
 
+import com.datastax.driver.core.Row
 import com.datastax.spark.connector._
 import com.datastax.spark.connector.cql.StructDef
 import com.datastax.spark.connector.mapper.{ColumnMapper, DefaultColumnMapper, JavaBeanColumnMapper, TupleColumnMapper}
@@ -185,8 +186,31 @@ private[connector] class GettableDataToMappedTypeConverter[T : TypeTag : ColumnM
     }
   }.toMap
 
-  /** Evaluates the i-th constructor param value, based on given input data.
-    * The returned value is already converted to the type expected by the constructor. */
+  /** Reads the value of the given column from the input data and converts it with the given converter.*/
+  private def convertedColumnValue(
+    columnRef: ColumnRef,
+    data: Row,
+    converter: TypeConverter[_]
+  ): AnyRef = {
+    val name = columnRef.columnName
+    val value = data.getObject(columnRef.columnName)
+    checkNotNull(tryConvert(value, converter, name), name)
+  }
+
+  /**
+   * Evaluates the i-th constructor param value, based on given input data.
+   * The returned value is already converted to the type expected by the constructor.
+   */
+  private def ctorParamValue(i: Int, data: Row): AnyRef = {
+    val ref = columnMap.constructor(i)
+    val converter = ctorParamConverters(i)
+    convertedColumnValue(ref, data, converter)
+  }
+
+  /**
+   * Evaluates the i-th constructor param value, based on given input data.
+   * The returned value is already converted to the type expected by the constructor.
+   */
   private def ctorParamValue(i: Int, data: GettableData): AnyRef = {
     val ref = columnMap.constructor(i)
     val converter = ctorParamConverters(i)
@@ -231,6 +255,11 @@ private[connector] class GettableDataToMappedTypeConverter[T : TypeTag : ColumnM
       buf(i) = ctorParamValue(i, data)
   }
 
+  /** Fills buffer with converted constructor arguments */
+  private def fillBuffer(data: Row, buf: Array[AnyRef]): Unit = {
+    for (i <- buf.indices)
+      buf(i) = ctorParamValue(i, data)
+  }
 
   /** List of the setters on type `T` with their corresponding column references.
     * Evaluated basing on the information from the `ColumnMapper`.
@@ -268,5 +297,13 @@ private[connector] class GettableDataToMappedTypeConverter[T : TypeTag : ColumnM
       val buf = buffer.get()
       fillBuffer(data, buf)
       factory.newInstance(buf: _*)
+
+    case data: Row =>
+      val buf = buffer.get()
+      fillBuffer(data, buf)
+      val obj = factory.newInstance(buf: _*)
+      // TODO:     invokeSetters(data, obj)
+      obj
+
   }
 }

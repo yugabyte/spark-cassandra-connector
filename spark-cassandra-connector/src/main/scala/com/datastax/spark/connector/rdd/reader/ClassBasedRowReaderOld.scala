@@ -9,13 +9,15 @@ import org.apache.spark.sql.catalyst.ReflectionLock.SparkReflectionLock
 
 import scala.reflect.runtime.universe._
 
-
-/** Transforms a Cassandra Java driver `Row` into an object of a user provided class,
-  * calling the class constructor */
-final class ClassBasedRowReader[R : TypeTag : ColumnMapper](
-    table: TableDef,
-    selectedColumns: IndexedSeq[ColumnRef])
-  extends RowReader[R] {
+/**
+ * Transforms a Cassandra Java driver `Row` into an object of a user provided class,
+ * calling the class constructor
+ */
+final class ClassBasedRowReaderOld[R: TypeTag: ColumnMapper](
+  table: TableDef,
+  selectedColumns: IndexedSeq[ColumnRef]
+)
+    extends RowReader[R] {
 
   private val converter =
     new GettableDataToMappedTypeConverter[R](table, selectedColumns)
@@ -30,17 +32,17 @@ final class ClassBasedRowReader[R : TypeTag : ColumnMapper](
   }
 
   override def read(row: Row, rowMetaData: CassandraRowMetadata): R = {
-    converter.convert(row)
+    val cassandraRow = CassandraRow.fromJavaDriverRow(row, rowMetaData)
+    converter.convert(cassandraRow)
   }
 }
 
-
-class ClassBasedRowReaderFactory[R : TypeTag : ColumnMapper] extends RowReaderFactory[R] {
+class ClassBasedRowReaderFactoryOld[R: TypeTag: ColumnMapper] extends RowReaderFactory[R] {
 
   def columnMapper = implicitly[ColumnMapper[R]]
 
   override def rowReader(tableDef: TableDef, selection: IndexedSeq[ColumnRef]) =
-    new ClassBasedRowReader[R](tableDef, selection)
+    new ClassBasedRowReaderOld[R](tableDef, selection)
 
   override def targetClass: Class[R] = JavaApiHelper.getRuntimeClass(typeTag[R])
 }

@@ -26,7 +26,7 @@ addSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.0.4")
 
 addSbtPlugin("org.spark-packages" %% "sbt-spark-package" % "0.2.4")
 
-addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.2.6")
+addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.2.11")
 
 addSbtPlugin("net.virtual-void" % "sbt-dependency-graph" % "0.8.2")
 
