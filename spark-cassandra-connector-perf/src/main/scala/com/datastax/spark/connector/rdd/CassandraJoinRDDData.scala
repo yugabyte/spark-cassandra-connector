@@ -1,8 +1,8 @@
 package com.datastax.spark.connector.rdd
 
-import java.lang.{Long => JLong}
+import java.lang.{ Long => JLong }
 
-import com.datastax.driver.core.{ResultSet, ResultSetFuture, Session}
+import com.datastax.driver.core.{ ResultSet, ResultSetFuture, Session }
 import com.datastax.spark.connector.cql.CassandraConnector
 import com.datastax.spark.connector.embedded.SparkTemplate
 import com.datastax.spark.connector.rdd.CassandraJoinRDDBenchmark._
@@ -65,7 +65,7 @@ object CassandraJoinRDDData extends App with SparkTemplate {
 
     insertData(session, Keyspace, "one_element_partitions", Rows, 1)
     insertData(session, Keyspace, "small_partitions", Rows / SmallPartitionSize, SmallPartitionSize)
-    insertData(session, Keyspace, "moderate_partitions", Rows/ ModeratePartitionSize, ModeratePartitionSize)
+    insertData(session, Keyspace, "moderate_partitions", Rows / ModeratePartitionSize, ModeratePartitionSize)
     insertData(session, Keyspace, "big_partitions", Rows / BigPartitionSize, BigPartitionSize)
   }
 }

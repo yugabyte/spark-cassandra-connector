@@ -4,11 +4,12 @@ import com.datastax.spark.connector.CassandraRowMetadata
 import com.datastax.spark.connector.cql._
 import com.datastax.spark.connector.embedded.SparkTemplate
 import com.datastax.spark.connector.rdd.reader.ClassBasedRowReaderBenchmark.{ KeyspaceName, RowsCount, TableName }
+import org.apache.spark.sql.cassandra.CassandraSQLRow
 import org.openjdk.jmh.annotations._
 
 import scala.collection.JavaConversions._
 
-@State(Scope.Benchmark)
+@State(Scope.Thread)
 class ClassBasedRowReaderBenchmark extends SparkTemplate {
 
   case class KeyValue(key: Int, value: String)
@@ -46,6 +47,15 @@ class ClassBasedRowReaderBenchmark extends SparkTemplate {
   def newClassRowReader(): Seq[KeyValue] = {
     rows.map { row =>
       newReader.read(row, rowMetaData)
+    }
+  }
+
+  @Benchmark
+  @BenchmarkMode(Array(Mode.Throughput))
+  @OperationsPerInvocation(RowsCount)
+  def dfReader(): Seq[CassandraSQLRow] = {
+    rows.map { row =>
+      CassandraSQLRow.fromJavaDriverRow(row, rowMetaData)
     }
   }
 

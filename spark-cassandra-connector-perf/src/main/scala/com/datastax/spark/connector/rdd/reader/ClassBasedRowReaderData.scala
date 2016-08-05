@@ -35,7 +35,7 @@ object ClassBasedRowReaderData extends App with SparkTemplate {
   def insertData(session: Session, keyspace: String, table: String, rows: Int): Unit = {
     for (i <- 0 until rows)
       session.execute(
-        s"INSERT INTO $KeyspaceName.$table (key, value) VALUES (?, ?)", i: Integer, s"${i}_${someContent}".toString
+        s"INSERT INTO $KeyspaceName.$table (key, value) VALUES (?, ?)", i: Integer, s"${i}_$someContent".toString
       )
   }
 

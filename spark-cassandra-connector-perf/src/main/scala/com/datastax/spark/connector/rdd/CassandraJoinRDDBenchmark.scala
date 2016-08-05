@@ -10,10 +10,10 @@ import com.datastax.spark.connector.embedded.SparkTemplate
 import com.datastax.spark.connector.rdd.CassandraJoinRDDBenchmark._
 
 /**
-  * Performs a benchmark of fetching and joining C* table data with given "left" iterator. This
-  * is used in [[RDDFunctions.joinWithCassandraTable]] operation.
-  * External C* cluster should be started before benchmark execution.
-  */
+ * Performs a benchmark of fetching and joining C* table data with given "left" iterator. This
+ * is used in [[RDDFunctions.joinWithCassandraTable]] operation.
+ * External C* cluster should be started before benchmark execution.
+ */
 @State(Scope.Benchmark)
 class CassandraJoinRDDBenchmark {
 
