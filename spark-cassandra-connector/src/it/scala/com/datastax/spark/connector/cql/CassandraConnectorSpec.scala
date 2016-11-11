@@ -97,7 +97,8 @@ class CassandraConnectorSpec extends SparkCassandraITFlatSpecBase {
     CassandraConnector(sc.getConf).withSessionDo(x => {})
     CassandraConnector(sc.getConf).withSessionDo(x => {})
     val sessionCache = CassandraConnector.sessionCache
-    sessionCache.contains(CassandraConnectorConf(sc.getConf)) should be (true)
+    import CassandraConnector._
+    sessionCache.contains(toSerializedString(CassandraConnectorConf(sc.getConf))) should be (true)
     sessionCache.cache.size should be (1)
   }
 
@@ -110,7 +111,8 @@ class CassandraConnectorSpec extends SparkCassandraITFlatSpecBase {
       val rdd = sc.parallelize(1 to 100).map(x=> (x,x)).saveToCassandra(ks, "pair")
     }
     val sessionCache = CassandraConnector.sessionCache
-    sessionCache.contains(CassandraConnectorConf(sc.getConf)) should be (true)
+    import CassandraConnector._
+    sessionCache.contains(toSerializedString(CassandraConnectorConf(sc.getConf))) should be (true)
     sessionCache.cache.size should be (1)
   }
 

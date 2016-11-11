@@ -15,7 +15,7 @@ import com.datastax.spark.connector.util.Logging
 
 /** Stores configuration of a connection to Cassandra.
   * Provides information about cluster nodes, ports and optional credentials for authentication. */
-case class CassandraConnectorConf(
+case class CassandraConnectorConf (
   hosts: Set[InetAddress],
   port: Int = CassandraConnectorConf.ConnectionPortParam.default,
   authConf: AuthConf = NoAuthConf,
@@ -31,7 +31,7 @@ case class CassandraConnectorConf(
   cassandraSSLConf: CassandraConnectorConf.CassandraSSLConf = CassandraConnectorConf.DefaultCassandraSSLConf,
   @deprecated("delayed retrying has been disabled; see SPARKC-360", "1.2.6, 1.3.2, 1.4.3, 1.5.1")
   queryRetryDelay: CassandraConnectorConf.RetryDelayConf = CassandraConnectorConf.QueryRetryDelayParam.default
-)
+) extends Serializable
 
 /** A factory for [[CassandraConnectorConf]] objects.
   * Allows for manually setting connection properties or reading them from [[org.apache.spark.SparkConf SparkConf]]

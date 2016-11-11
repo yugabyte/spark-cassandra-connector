@@ -2,6 +2,8 @@ package com.datastax.spark.connector.cql
 
 import java.io.IOException
 import java.net.InetAddress
+import java.io.{ObjectOutputStream, ObjectInputStream, ByteArrayOutputStream, ByteArrayInputStream}
+import java.util.Base64
 
 import scala.collection.JavaConversions._
 import scala.language.reflectiveCalls
@@ -79,7 +81,7 @@ class CassandraConnector(conf: CassandraConnectorConf)
     * decreases the session reference counter. If the reference count drops to zero,
     * the session may be physically closed. */
   def openSession() = {
-    val session = sessionCache.acquire(_config)
+    val session = sessionCache.acquire(CassandraConnector.toSerializedString(_config))
     try {
       val allNodes = session.getCluster.getMetadata.getAllHosts.toSet
       val myNodes = LocalNodeFirstLoadBalancingPolicy
@@ -145,10 +147,11 @@ class CassandraConnector(conf: CassandraConnectorConf)
 
 object CassandraConnector extends Logging {
 
-  private[cql] val sessionCache = new RefCountedCache[CassandraConnectorConf, Session](
+  private[cql] val sessionCache = new RefCountedCache[String, Session](
     createSession, destroySession, alternativeConnectionConfigs)
 
-  private def createSession(conf: CassandraConnectorConf): Session = {
+  private def createSession(confString: String): Session = {
+    val conf = fromSerializedString(confString)
     lazy val endpointsStr = conf.hosts.map(_.getHostAddress).mkString("{", ", ", "}") + ":" + conf.port
     logDebug(s"Attempting to open native connection to Cassandra at $endpointsStr")
     val cluster = conf.connectionFactory.createCluster(conf)
@@ -174,10 +177,27 @@ object CassandraConnector extends Logging {
   }
 
   // This is to ensure the Cluster can be found by requesting for any of its hosts, or all hosts together.
-  private def alternativeConnectionConfigs(conf: CassandraConnectorConf, session: Session): Set[CassandraConnectorConf] = {
+  private def alternativeConnectionConfigs(confString: String, session: Session): Set[String] = {
     val cluster = session.getCluster
+    val conf = fromSerializedString(confString)
     val hosts = LocalNodeFirstLoadBalancingPolicy.nodesInTheSameDC(conf.hosts, cluster.getMetadata.getAllHosts.toSet)
-    hosts.map(h => conf.copy(hosts = Set(h.getAddress))) + conf.copy(hosts = hosts.map(_.getAddress))
+    hosts.map(h => toSerializedString(conf.copy(hosts = Set(h.getAddress)))) + toSerializedString(conf.copy(hosts = hosts.map(_.getAddress)))
+  }
+
+  def toSerializedString(conf: CassandraConnectorConf): String = {
+    val baos = new ByteArrayOutputStream
+    val oos = new ObjectOutputStream(baos)
+    oos.writeObject(conf);
+    oos.close;
+    Base64.getEncoder.encodeToString(baos.toByteArray)
+  }
+
+  def fromSerializedString(conf: String): CassandraConnectorConf = {
+    val data = Base64.getDecoder.decode(conf)
+    val ois = new ObjectInputStream(new ByteArrayInputStream(data))
+    val o  = ois.readObject()
+    ois.close();
+    o.asInstanceOf[CassandraConnectorConf]
   }
 
   SerialShutdownHooks.add("Clearing session cache for C* connector")(() => {
