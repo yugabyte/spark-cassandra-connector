@@ -53,6 +53,18 @@ final class RefCountedCache[K, V](create: K => V,
         else
           acquire(key)
       case None =>
+        syncAcquire(key)
+    }
+  }
+
+  private[this] def syncAcquire(key: K): V = synchronized {
+    cache.get(key) match {
+      case Some(value) =>
+        if (refCounter.acquireIfNonZero(value) > 0)
+          value
+        else
+          acquire(key)
+      case None =>
         val (value, keySet) = createNewValueAndKeys(key)
         refCounter.acquire(value)
         cache.putIfAbsent(key, value) match {
