@@ -163,7 +163,7 @@ object CassandraSparkBuild extends Build {
     id = s"$namespace-doc",
     base = file(s"$namespace-doc"),
     settings = defaultSettings ++ Seq(libraryDependencies ++= Dependencies.spark)
-  ) dependsOn connectorDistribution
+  ) dependsOn fullConnector
 
   lazy val perf = Project(
     id = s"$namespace-perf",
