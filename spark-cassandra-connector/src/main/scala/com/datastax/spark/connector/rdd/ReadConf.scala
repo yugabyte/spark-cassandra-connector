@@ -1,7 +1,7 @@
 package com.datastax.spark.connector.rdd
 
 import com.datastax.driver.core.ConsistencyLevel
-import com.datastax.spark.connector.util.{ConfigParameter, ConfigCheck, Logging}
+import com.datastax.spark.connector.util.{ConfigParameter, ConfigCheck, DeprecatedConfigParameter, Logging}
 import org.apache.spark.SparkConf
 
 /** Read settings for RDD
@@ -83,8 +83,9 @@ object ReadConf extends Logging {
     ThroughputJoinQueryPerSecParam
   )
 
-  def fromSparkConf(conf: SparkConf): ReadConf = {
+  val DeprecatedProperties = Set.empty[DeprecatedConfigParameter]
 
+  def fromSparkConf(conf: SparkConf): ReadConf = {
     ConfigCheck.checkConfig(conf)
 
     val throughtputJoinQueryPerSec = conf.getOption(ThroughputJoinQueryPerSecParam.name)

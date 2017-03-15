@@ -9,7 +9,7 @@ import com.datastax.spark.connector.rdd.{CassandraRDD, CassandraTableScanRDD, Re
 import com.datastax.spark.connector.rdd.partitioner.dht.TokenFactory.forSystemLocalPartitioner
 import com.datastax.spark.connector.types.{InetType, UUIDType, VarIntType}
 import com.datastax.spark.connector.util.Quote._
-import com.datastax.spark.connector.util.{ConfigParameter, Logging, ReflectionUtil}
+import com.datastax.spark.connector.util.{ConfigParameter, DeprecatedConfigParameter, Logging, ReflectionUtil}
 import com.datastax.spark.connector.writer.{SqlRowWriter, WriteConf}
 import com.datastax.spark.connector.{SomeColumns, _}
 import org.apache.spark.SparkConf
@@ -226,7 +226,7 @@ object CassandraSourceRelation {
   )
 
   val AdditionalCassandraPushDownRulesParam = ConfigParameter[List[CassandraPredicateRules]] (
-    name = "spark.cassandra.sql.pushdown.additionalClasses",
+    name = "spark.cassandra.sql.pushdown.additional_classes",
     section = ReferenceSection,
     default = List.empty,
     description =
@@ -235,9 +235,19 @@ object CassandraSourceRelation {
       """.stripMargin
   )
 
+  val deprecatedAdditionalCassandraPushDownRulesParam = DeprecatedConfigParameter(
+    oldName = "spark.cassandra.sql.pushdown.additionalClasses",
+    newName = Some(AdditionalCassandraPushDownRulesParam.name),
+    deprecatedSince = "1.6.6, 2.0.1"
+  )
+
   val Properties = Seq(
     AdditionalCassandraPushDownRulesParam,
     TableSizeInBytesParam
+  )
+
+  val DeprecatedProperties = Seq (
+    deprecatedAdditionalCassandraPushDownRulesParam
   )
 
   val defaultClusterName = "default"
@@ -309,6 +319,9 @@ object CassandraSourceRelation {
         sqlConf.get(s"$cluster/$prop"),
         sqlConf.get(s"default/$prop")).flatten.headOption
       value.foreach(conf.set(prop, _))
+    }
+    for (deprecatedProperty <- DeprecatedProperties) {
+      deprecatedProperty.maybeReplace(conf)
     }
     //Set all user properties
     conf.setAll(tableConf -- DefaultSource.confProperties)
