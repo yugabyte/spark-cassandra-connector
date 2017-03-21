@@ -24,6 +24,8 @@ class DeprecationSpec extends FlatSpec with Matchers with BeforeAndAfterAll {
 
     conf.set("spark.cassandra.dev.customFromDriver", "sundance")
 
+    conf.set("spark.cassandra.input.join.throughput_query_per_sec", "42")
+
     conf.set("spark.cassandra.output.ifNotExists", "true")
     conf.set("spark.cassandra.output.ignoreNulls", "true")
 
@@ -49,6 +51,7 @@ class DeprecationSpec extends FlatSpec with Matchers with BeforeAndAfterAll {
 
   it should "deprecate ReadConf" in {
     val readConf = ReadConf.fromSparkConf(conf)
+    readConf.readsPerSec should be (42)
   }
 
   it should "deprecate SoureConf" in {

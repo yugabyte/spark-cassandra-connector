@@ -38,7 +38,6 @@ object ConfigCheck {
     CassandraConnectorConf.DeprecatedProperties ++
     AuthConfFactory.DeprecatedProperties ++
     CassandraConnectionFactory.DeprecatedProperties ++
-    CassandraSQLContext.DeprecatedProperties ++
     CassandraSourceRelation.DeprecatedProperties ++
     ColumnTypeConf.DeprecatedProperties
 
