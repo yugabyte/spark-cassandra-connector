@@ -41,6 +41,7 @@ private[cassandra] class CassandraSourceRelation(
   extends BaseRelation
   with InsertableRelation
   with PrunedFilteredScan
+  with Serializable
   with Logging {
 
   private[this] val tableDef = Schema.tableFromCassandra(
