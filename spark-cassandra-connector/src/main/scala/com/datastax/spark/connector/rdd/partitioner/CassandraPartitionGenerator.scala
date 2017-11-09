@@ -1,5 +1,6 @@
 package com.datastax.spark.connector.rdd.partitioner
 
+import java.util.NavigableMap
 import scala.collection.JavaConversions._
 import scala.collection.parallel.ForkJoinTaskSupport
 import scala.concurrent.forkjoin.ForkJoinPool
@@ -9,11 +10,13 @@ import scala.util.Try
 
 import com.datastax.spark.connector.util.Logging
 
-import com.datastax.driver.core.{Metadata, TokenRange => DriverTokenRange}
+import com.datastax.driver.core.{Host, Metadata, TokenRange => DriverTokenRange}
 import com.datastax.spark.connector.ColumnSelector
 import com.datastax.spark.connector.cql.{CassandraConnector, TableDef}
-import com.datastax.spark.connector.rdd.partitioner.dht.{Token, TokenFactory}
+import com.datastax.spark.connector.rdd.partitioner.dht.{LongToken, Token, TokenFactory}
 import com.datastax.spark.connector.writer.RowWriterFactory
+import com.yugabyte.driver.core.policies.PartitionAwarePolicy
+import com.yugabyte.driver.core.PartitionMetadata
 
 /** Creates CassandraPartitions for given Cassandra table */
 private[connector] class CassandraPartitionGenerator[V, T <: Token[V]](
@@ -68,7 +71,25 @@ private[connector] class CassandraPartitionGenerator[V, T <: Token[V]](
     range.unwrap.map(CqlTokenRange(_))
 
   def partitions: Seq[CassandraPartition[V, T]] = {
-    val tokenRanges = describeRing
+    // Try to get table-specific partition map from table metadata (for YugaByte).
+    val partitionMap: NavigableMap[Integer, PartitionMetadata] = connector withClusterDo { cluster =>
+      cluster.getMetadata.getTableSplitMetadata(tableDef.keyspaceName, tableDef.tableName).getPartitionMap()
+    }
+
+    val tokenRanges : Seq[TokenRange] = if (partitionMap != null) {
+      // Compute map from (start) token to corresponding hosts based on the partition map.
+      // Converting token map into Sequence of TokenRanges describing the ring for this table.
+      partitionMap.values.toSeq.map { partition =>
+        val startToken = tokenFactory.tokenFromString(PartitionAwarePolicy.YBToCqlHashCode(partition.getStartKey()).toString)
+        val endToken = tokenFactory.tokenFromString(PartitionAwarePolicy.YBToCqlHashCode(partition.getEndKey()).toString)
+        val hosts = partition.getHosts().map(_.getAddress).toSet
+        new TokenRange(startToken, endToken, hosts, tokenFactory)
+      }
+    } else {
+      // If YugaByte partition map is missing, default to Cassandra behavior.
+      describeRing
+    }
+
     val endpointCount = tokenRanges.map(_.replicas).reduce(_ ++ _).size
     val maxGroupSize = tokenRanges.size / endpointCount
 

@@ -15,7 +15,7 @@ import org.apache.spark.SparkConf
   * @param batchGroupingBufferSize the number of distinct batches that can be buffered before
   *                        they are written to Cassandra
   * @param batchGroupingKey which rows can be grouped into a single batch
-  * @param consistencyLevel consistency level for writes, default LOCAL_QUORUM
+  * @param consistencyLevel consistency level for writes, default YB_STRONG.
   * @param ifNotExists inserting a row should happen only if it does not already exist
   * @param parallelismLevel number of batches to be written in parallel
   * @param ttl       the default TTL value which is used when it is defined (in seconds)
@@ -60,7 +60,7 @@ object WriteConf {
   val ConsistencyLevelParam = ConfigParameter[ConsistencyLevel](
     name = "spark.cassandra.output.consistency.level",
     section = ReferenceSection,
-    default = ConsistencyLevel.LOCAL_QUORUM,
+    default = ConsistencyLevel.YB_STRONG,
     description = """Consistency level for writing""")
 
   val BatchSizeRowsParam = ConfigParameter[Option[Int]](

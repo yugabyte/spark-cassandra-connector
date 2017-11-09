@@ -11,6 +11,7 @@ import com.datastax.driver.core._
 import com.datastax.spark.connector.cql.CassandraConnectorConf.CassandraSSLConf
 import com.datastax.spark.connector.rdd.ReadConf
 import com.datastax.spark.connector.util.{ConfigParameter, ReflectionUtil}
+import com.yugabyte.driver.core.policies.PartitionAwarePolicy
 
 /** Creates both native and Thrift connections to Cassandra.
   * The connector provides a DefaultConnectionFactory.
@@ -48,7 +49,7 @@ object DefaultConnectionFactory extends CassandraConnectionFactory {
       .withReconnectionPolicy(
         new ExponentialReconnectionPolicy(conf.minReconnectionDelayMillis, conf.maxReconnectionDelayMillis))
       .withLoadBalancingPolicy(
-        new LocalNodeFirstLoadBalancingPolicy(conf.hosts, conf.localDC))
+        new PartitionAwarePolicy(new LocalNodeFirstLoadBalancingPolicy(conf.hosts, conf.localDC)))
       .withAuthProvider(conf.authConf.authProvider)
       .withSocketOptions(options)
       .withCompression(conf.compression)

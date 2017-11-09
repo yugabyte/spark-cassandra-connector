@@ -205,8 +205,8 @@ object Artifacts {
       .exclude("org.scala-lang", "scala-compiler")
   }
 
-  val cassandraDriver         = "com.datastax.cassandra"  % "cassandra-driver-core"  % CassandraDriver driverExclusions() // ApacheV2
-  val cassandraDriverMapping  = "com.datastax.cassandra"  % "cassandra-driver-mapping"  % CassandraDriver driverExclusions() // ApacheV2
+  val cassandraDriver         = "com.yugabyte"            % "cassandra-driver-core"  % CassandraDriver driverExclusions() // ApacheV2
+  val cassandraDriverMapping  = "com.yugabyte"            % "cassandra-driver-mapping" % CassandraDriver driverExclusions() // ApacheV2
   val commonsBeanUtils        = "commons-beanutils"       % "commons-beanutils"      % CommonsBeanUtils                 exclude("commons-logging", "commons-logging") // ApacheV2
   val config                  = "com.typesafe"            % "config"                 % Config         % "provided"  // ApacheV2
   val guava                   = "com.google.guava"        % "guava"                  % Guava

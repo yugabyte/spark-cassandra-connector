@@ -11,15 +11,17 @@ case class CqlTokenRange[V, T <: Token[V]](range: TokenRange[V, T])(implicit tf:
 
   require(!range.isWrappedAround)
 
+  // YugaByte token ranges are start-inclusive and end-exclusive. So we always use ">=" for lower
+  // bounds and "<" for upper bounds to fit the ranges exactly.
   def cql(pk: String): (String, Seq[Any]) =
-    if (range.start == tf.minToken && range.end == tf.minToken)
+    if (range.start == tf.minToken && range.end == tf.minToken) // entire ring => 'tk >= minToken'
       (s"token($pk) >= ?", Seq(range.start.value))
-    else if (range.start == tf.minToken)
-      (s"token($pk) <= ?", Seq(range.end.value))
-    else if (range.end == tf.minToken)
-      (s"token($pk) > ?", Seq(range.start.value))
+    else if (range.start == tf.minToken) // start is minToken => explicit lower bound not needed.
+      (s"token($pk) < ?", Seq(range.end.value))
+    else if (range.end == tf.minToken) // end is minToken => explicit upper bound not needed.
+      (s"token($pk) >= ?", Seq(range.start.value))
     else
-      (s"token($pk) > ? AND token($pk) <= ?", Seq(range.start.value, range.end.value))
+      (s"token($pk) >= ? AND token($pk) < ?", Seq(range.start.value, range.end.value))
 }
 
 trait EndpointPartition extends Partition {
