@@ -26,7 +26,9 @@ object Versions {
 
   val Akka            = "2.3.4"
   val Cassandra       = "3.11.3"
-  val CassandraDriver = "3.7.2"
+  // val Cassandra       = "3.6"
+  val CassandraDriver = "3.2.0-yb-10"
+>>>>>>> 5babbcaf... Use partition-aware policy for Spark load balancing and partitioning
   val CommonsIO       = "2.4"
   val CommonsLang3    = "3.3.2"
   val CommonsBeanUtils= "1.9.3"
