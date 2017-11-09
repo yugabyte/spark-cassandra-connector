@@ -43,7 +43,7 @@ object Settings extends Build {
   def currentVersion = ("git describe --tags --match v*" !!).trim.substring(1)
 
   lazy val buildSettings = Seq(
-    organization         := "com.datastax.spark",
+    organization         := "com.yugabyte.spark",
     version in ThisBuild := currentVersion,
     scalaVersion         := Versions.scala211,
     crossScalaVersions   := Seq(Versions.scala211, Versions.scala212),
@@ -52,7 +52,7 @@ object Settings extends Build {
   )
 
   lazy val sparkPackageSettings = Seq(
-    spName := "datastax/spark-cassandra-connector",
+    spName := "yugabyte/spark-cassandra-connector",
     sparkVersion := Versions.Spark,
     spAppendScalaVersion := true,
     spIncludeMaven := true,
@@ -63,12 +63,12 @@ object Settings extends Build {
 
   override lazy val settings = super.settings ++ buildSettings ++ Seq(
     normalizedName := "spark-cassandra-connector",
-    name := "DataStax Apache Cassandra connector for Apache Spark",
-    organization := "com.datastax.spark",
-    description  := """
-                  |A library that exposes Cassandra tables as Spark RDDs, writes Spark RDDs to
-                  |Cassandra tables, and executes CQL queries in Spark applications.""".stringPrefix,
-    homepage := Some(url("https://github.com/datastax/spark-cassandra-connector")),
+    name := "YugaByte fork of the DataStax Apache Cassandra connector for Apache Spark",
+    organization := "com.yugabyte.spark",
+    description  := """A library that exposes YugaByte DB tables as Spark RDDs, writes Spark RDDs to
+                       YugaByte DB tables, and executes CQL queries in Spark applications using
+                       YugaByte DB's Cassandra-compatible API.""",
+    homepage := Some(url("https://github.com/yugabyte/spark-cassandra-connector")),
     licenses := Seq(("Apache License 2.0", url("http://www.apache.org/licenses/LICENSE-2.0"))),
     promptTheme := ScalapenosTheme
   )

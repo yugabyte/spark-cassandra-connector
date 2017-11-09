@@ -26,7 +26,7 @@ class LocalNodeFirstLoadBalancingPolicy(contactPoints: Set[InetAddress], localDC
 
   override def distance(host: Host): HostDistance =
     if (host.getDatacenter == dcToUse) {
-      sameDCHostDistance(host)
+      HostDistance.LOCAL
     } else {
       // this insures we keep remote hosts out of our list entirely, even when we get notified of newly joined nodes
       HostDistance.IGNORED
@@ -49,28 +49,9 @@ class LocalNodeFirstLoadBalancingPolicy(contactPoints: Set[InetAddress], localDC
       .filter(host => host.isUp && distance(host) != HostDistance.IGNORED)
   }
 
-  private def tokenAwareQueryPlan(keyspace: String, statement: Statement): JIterator[Host] = {
-    assert(keyspace != null)
-    assert(statement.getRoutingKey(ProtocolVersion.NEWEST_SUPPORTED, CodecRegistry.DEFAULT_INSTANCE) != null)
-
-    val replicas = findReplicas(keyspace,
-      statement.getRoutingKey(ProtocolVersion.NEWEST_SUPPORTED, CodecRegistry.DEFAULT_INSTANCE))
-    val (localReplica, otherReplicas) = replicas.partition(isLocalHost)
-    lazy val maybeShuffled = if (shuffleReplicas) random.shuffle(otherReplicas.toIndexedSeq) else otherReplicas
-
-    lazy val otherHosts = tokenUnawareQueryPlan(keyspace, statement).toIterator
-      .filter(host => !replicas.contains(host) && distance(host) != HostDistance.IGNORED)
-
-    (localReplica.iterator #:: maybeShuffled.iterator #:: otherHosts #:: Stream.empty).flatten.iterator
-  }
-
   override def newQueryPlan(loggedKeyspace: String, statement: Statement): JIterator[Host] = {
     val keyspace = if (statement.getKeyspace == null) loggedKeyspace else statement.getKeyspace
-
-    if (statement.getRoutingKey(ProtocolVersion.NEWEST_SUPPORTED, CodecRegistry.DEFAULT_INSTANCE) == null || keyspace == null)
-      tokenUnawareQueryPlan(keyspace, statement)
-    else
-      tokenAwareQueryPlan(keyspace, statement)
+    tokenUnawareQueryPlan(keyspace, statement)
   }
   
   override def onAdd(host: Host) {
@@ -89,12 +70,6 @@ class LocalNodeFirstLoadBalancingPolicy(contactPoints: Set[InetAddress], localDC
   override def close() = { }
   override def onUp(host: Host) = { }
   override def onDown(host: Host) = { }
-
-  private def sameDCHostDistance(host: Host) =
-    if (isLocalHost(host))
-      HostDistance.LOCAL
-    else
-      HostDistance.REMOTE
 
   private def dcs(hosts: Set[Host]) =
     hosts.filter(_.getDatacenter != null).map(_.getDatacenter).toSet
