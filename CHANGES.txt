@@ -1,3 +1,6 @@
+2.0.5-yb-2
+ * Update Cassandra driver version to 3.2.0-yb-12
+
 2.0.5-yb-1
  * Add load balancing policy for YugaByte
 
