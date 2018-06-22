@@ -1,3 +1,9 @@
+2.0.5-yb-4
+ * Update Cassandra driver version to 3.2.0-yb-15
+
+2.0.5-yb-3
+ * Update Cassandra driver version to 3.2.0-yb-14
+
 2.0.5-yb-2
  * Update Cassandra driver version to 3.2.0-yb-12
 
