@@ -1,3 +1,7 @@
+2.0.5-yb-6
+ * Update Cassandra driver version to 3.2.0-yb-16
+  - Add support for Read Replicas in PartitionAwarePolicy
+
 2.0.5-yb-4
  * Update Cassandra driver version to 3.2.0-yb-15
 
