@@ -51,6 +51,10 @@
 2.0.6
  * Includes all patches up to 1.6.10
 
+2.0.5-yb-7
+ * Update Cassandra driver version to 3.2.0-yb-17
+  - Change Cassandra wire protocol for JSON datatype number. 
+
 2.0.5-yb-6
  * Update Cassandra driver version to 3.2.0-yb-16
   - Add support for Read Replicas in PartitionAwarePolicy
