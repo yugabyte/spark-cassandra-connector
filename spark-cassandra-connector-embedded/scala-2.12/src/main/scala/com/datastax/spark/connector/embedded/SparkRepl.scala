@@ -3,10 +3,11 @@ package com.datastax.spark.connector.embedded
 import java.io._
 import java.net.URLClassLoader
 
-import scala.collection.mutable.ArrayBuffer
-
 import org.apache.spark.SparkConf
-import org.apache.spark.repl.SparkILoop
+import org.apache.spark.repl.{Main, SparkILoop}
+
+import scala.collection.mutable.ArrayBuffer
+import scala.tools.nsc.GenericRunnerSettings
 
 object SparkRepl {
 
@@ -25,16 +26,15 @@ object SparkRepl {
       case _ =>
     }
 
-    sys.props ++= conf.getAll
-    val interp = new SparkILoop(in, new PrintWriter(out))
-    org.apache.spark.repl.Main.interp = interp
+    Main.conf.setAll(conf.getAll)
+    val interp = new SparkILoop(Some(in), new PrintWriter(out))
+    Main.interp = interp
     val separator = System.getProperty("path.separator")
-    interp.process(Array("-classpath", paths.mkString(separator)))
-    org.apache.spark.repl.Main.interp = null
-    if (interp.sparkContext != null) {
-      interp.sparkContext.stop()
-    }
-    // To avoid Akka rebinding to the same port, since it doesn't unbind immediately on shutdown
+    val settings = new GenericRunnerSettings(s => throw new RuntimeException(s"Scala options error: $s"))
+    settings.processArguments(List("-classpath", paths.mkString(separator)), true)
+    interp.process(settings) // Repl starts and goes in loop of R.E.P.L
+    Main.interp = null
+    Option(Main.sparkContext).foreach(_.stop())
     System.clearProperty("spark.driver.port")
     out.toString
   }

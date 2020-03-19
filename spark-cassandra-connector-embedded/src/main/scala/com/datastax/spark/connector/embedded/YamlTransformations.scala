@@ -47,11 +47,11 @@ object YamlTransformations {
 
   private def readTemplate(): JMap[String, AnyRef]@unchecked = {
     val exactTmplt =
-      Option(ClassLoader.getSystemResourceAsStream(s"cassandra-$YamlTemplateVersion.yaml.template"))
+      Option(getClass.getResourceAsStream(s"/cassandra-$YamlTemplateVersion.yaml.template"))
     lazy val fallbackTmplt = {
       System.err.println(s"Warning: Using fallback template for Cassandra 3.2 because " +
         s"the template for Cassandra $YamlTemplateVersion could not be found.")
-      Option(ClassLoader.getSystemResourceAsStream(s"cassandra-3.2.yaml.template"))
+      Option(getClass.getResourceAsStream(s"/cassandra-3.2.yaml.template"))
     }
 
     yaml.load(exactTmplt orElse fallbackTmplt orNull) match {
@@ -117,6 +117,8 @@ object YamlTransformations {
      rpcAddress: String = "127.0.0.1",
      jmxPort: Int = CassandraRunner.DefaultJmxPort) extends YamlTransformations {
 
+    import EmbeddedCassandra._
+
     addTransformation("cluster_name", clusterName)
     addTransformation("data_file_directories", List(Paths.get(cassandraDir, "data").toString): JList[String])
     addTransformation("commitlog_directory", Paths.get(cassandraDir, "commitlog").toString)
@@ -130,6 +132,10 @@ object YamlTransformations {
     addTransformation("listen_address", listenAddress)
     addTransformation("native_transport_port", nativeTransportPort: JInteger)
     addTransformation("rpc_address", rpcAddress)
+
+    if (cassandraMajorVersion >= 3 && cassandraMinorVersion >= 11) {
+      addTransformation("cdc_raw_directory", Paths.get(cassandraDir, "cdcraw").toString)
+    }
 
     if (YamlTemplateVersion >= "3.0") {
       addTransformation("hints_directory", Paths.get(cassandraDir, "hints").toString)

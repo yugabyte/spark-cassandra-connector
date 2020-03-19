@@ -12,7 +12,7 @@ Pulling this dependency in allows you to:
   - If your sbt project is configured to run IT configs
 - Easily write and run a Spark Streaming app using 
   - Apache Kafka streams (including an embedded Zookeeper), all with no Ops work involved
-  - And of course Cassandra but you currently need to spin up a local instance: [Download Cassandra latest](http://cassandra.apache.org/download/), open the tar, and run `sudo ./apache-cassandra-*/bin/cassandra`
+  - And of course Cassandra but you currently need to spin up a local instance: [Download Cassandra latest](https://cassandra.apache.org/download/), open the tar, and run `sudo ./apache-cassandra-*/bin/cassandra`
 
 ## The Code
 See: [https://github.com/datastax/spark-cassandra-connector/tree/master/spark-cassandra-connector-embedded/src/main/scala/com/datastax/spark/connector/embedded](https://github.com/datastax/spark-cassandra-connector/tree/master/spark-cassandra-connector-embedded/src/main/scala/com/datastax/spark/connector/embedded)
@@ -24,6 +24,6 @@ Simply add this to your SBT build, or in the appropriate format for a Maven buil
     "com.datastax.spark"  %% "spark-cassandra-connector-embedded" % {latest.version}
     
 ## Examples
-https://github.com/datastax/SparkBuildExamples
+[Spark Build Examples](https://github.com/datastax/SparkBuildExamples)
 
 [Next - Performance Monitoring](11_metrics.md)

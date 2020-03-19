@@ -1,6 +1,8 @@
 package com.datastax.spark.connector.rdd
 
-import com.datastax.driver.core.Session
+import java.util.concurrent.Future
+
+import com.datastax.driver.core.{PreparedStatement, Session}
 import com.datastax.spark.connector._
 import com.datastax.spark.connector.rdd.CassandraLimit._
 import com.datastax.spark.connector.util.CqlWhereParser.{EqPredicate, InListPredicate, InPredicate, RangePredicate}
@@ -9,8 +11,10 @@ import com.datastax.spark.connector.util.{CountingIterator, CqlWhereParser}
 import com.datastax.spark.connector.writer._
 import org.apache.spark.metrics.InputMetricsUpdater
 import org.apache.spark.rdd.RDD
+import org.apache.spark.util.TaskCompletionListener
 import org.apache.spark.{Partition, TaskContext}
 
+import scala.collection.JavaConverters._
 /**
  * This trait contains shared methods from [[com.datastax.spark.connector.rdd.CassandraJoinRDD]] and
  * [[com.datastax.spark.connector.rdd.CassandraLeftJoinRDD]] to avoid code duplication.
@@ -30,6 +34,7 @@ private[rdd] trait AbstractCassandraJoin[L, R] {
   private[rdd] def fetchIterator(
     session: Session,
     bsb: BoundStatementBuilder[L],
+    rowMetadata: CassandraRowMetadata,
     lastIt: Iterator[L]
   ): Iterator[(L, R)]
 
@@ -133,11 +138,22 @@ private[rdd] trait AbstractCassandraJoin[L, R] {
     query
   }
 
+  private def getPreparedStatement(session: Session): PreparedStatement = {
+    session.prepare(singleKeyCqlQuery).setConsistencyLevel(consistencyLevel).setIdempotent(true)
+  }
+
+  private def getCassandraRowMetadata(session: Session) = {
+    val columnNames = selectedColumnRefs.map(_.selectedAs).toIndexedSeq
+    val id = getPreparedStatement(session).getPreparedId
+    CassandraRowMetadata.fromPreparedId(columnNames, id)
+  }
+
   private[rdd] def boundStatementBuilder(session: Session): BoundStatementBuilder[L] = {
     val protocolVersion = session.getCluster.getConfiguration.getProtocolOptions.getProtocolVersion
-    val stmt = session.prepare(singleKeyCqlQuery).setConsistencyLevel(consistencyLevel)
+    val stmt = getPreparedStatement(session)
     new BoundStatementBuilder[L](rowWriter, stmt, where.values, protocolVersion = protocolVersion)
   }
+
 
   /**
    * When computing a CassandraPartitionKeyRDD the data is selected via single CQL statements
@@ -147,19 +163,24 @@ private[rdd] trait AbstractCassandraJoin[L, R] {
   override def compute(split: Partition, context: TaskContext): Iterator[(L, R)] = {
     val session = connector.openSession()
     val bsb = boundStatementBuilder(session)
+    val rowMetadata = getCassandraRowMetadata(session)
     val metricsUpdater = InputMetricsUpdater(context, readConf)
-    val rowIterator = fetchIterator(session, bsb, left.iterator(split, context))
+    val rowIterator = fetchIterator(session, bsb, rowMetadata, left.iterator(split, context))
     val countingIterator = new CountingIterator(rowIterator, None)
 
-    context.addTaskCompletionListener { (context) =>
-      val duration = metricsUpdater.finish() / 1000000000d
-      logDebug(
-        f"Fetched ${countingIterator.count} rows " +
-          f"from $keyspaceName.$tableName " +
-          f"for partition ${split.index} in $duration%.3f s."
-      )
-      session.close()
+    val listener : TaskCompletionListener = new TaskCompletionListener {
+      override def onTaskCompletion(context: TaskContext): Unit = {
+        val duration = metricsUpdater.finish() / 1000000000d
+        logDebug(
+          f"Fetched ${countingIterator.count} rows " +
+            f"from $keyspaceName.$tableName " +
+            f"for partition ${split.index} in $duration%.3f s."
+        )
+        session.close()
+      }
     }
+
+    context.addTaskCompletionListener(listener)
     countingIterator
   }
 
@@ -182,6 +203,16 @@ private[rdd] trait AbstractCassandraJoin[L, R] {
       clusteringOrder = clusteringOrder,
       readConf = readConf
     )
+
+  /** Prefetches a batchSize of elements at a time **/
+  protected def slidingPrefetchIterator[T](it: Iterator[Future[T]], batchSize: Int): Iterator[T] = {
+    val (firstElements, lastElement) =  it
+      .grouped(batchSize)
+      .sliding(2)
+      .span(_ => it.hasNext)
+
+    (firstElements.map(_.head) ++ lastElement.flatten).flatten.map(_.get)
+  }
 
 }
 
