@@ -1,3 +1,6 @@
+2.4-yb-2
+  * Support for jsonb columns
+
 2.4.2
   * Support for Scala 2.12 (SPARKC-458)
 
