@@ -79,12 +79,19 @@ private[connector] class CassandraPartitionGenerator[V, T <: Token[V]](
     val tokenRanges : Seq[TokenRange] = if (partitionMap != null) {
       // Compute map from (start) token to corresponding hosts based on the partition map.
       // Converting token map into Sequence of TokenRanges describing the ring for this table.
-      partitionMap.values.toSeq.map { partition =>
+      var ranges = partitionMap.values.toSeq.map { partition =>
         val startToken = tokenFactory.tokenFromString(PartitionAwarePolicy.YBToCqlHashCode(partition.getStartKey()).toString)
         val endToken = tokenFactory.tokenFromString(PartitionAwarePolicy.YBToCqlHashCode(partition.getEndKey()).toString)
         val hosts = partition.getHosts().map(_.getAddress).toSet
         new TokenRange(startToken, endToken, hosts, tokenFactory)
       }
+      ranges match {
+        case head #:: rest =>
+          // If the partition map is empty, fall back to Cassandra way of choosing ranges
+          if (head.replicas.isEmpty)
+            ranges = describeRing
+      }
+      ranges
     } else {
       // If YugaByte partition map is missing, default to Cassandra behavior.
       describeRing
