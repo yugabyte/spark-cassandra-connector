@@ -11,11 +11,11 @@ ThisBuild / scalacOptions ++= Seq("-target:jvm-1.8")
 
 // Publishing Info
 ThisBuild / credentials ++= Publishing.Creds
-ThisBuild / homepage := Some(url("https://github.com/datastax/spark-cassandra-connector"))
+ThisBuild / homepage := Some(url("https://github.com/yugabyte/spark-cassandra-connector"))
 ThisBuild / licenses := List("Apache 2" -> new URL("http://www.apache.org/licenses/LICENSE-2.0.txt") )
-ThisBuild / organization := "com.datastax.spark"
-ThisBuild / organizationName := "Datastax"
-ThisBuild / organizationHomepage := Some(url("https://www.datastax.com"))
+ThisBuild / organization := "com.yugabyte.spark"
+ThisBuild / organizationName := "Yugabyte"
+ThisBuild / organizationHomepage := Some(url("https://www.yugabyte.com"))
 ThisBuild / pomExtra := Publishing.OurDevelopers
 ThisBuild / pomIncludeRepository := { _ => false }
 ThisBuild / publishMavenStyle := true

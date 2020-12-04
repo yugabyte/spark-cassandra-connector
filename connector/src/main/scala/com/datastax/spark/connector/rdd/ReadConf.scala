@@ -11,7 +11,7 @@ import org.apache.spark.SparkConf
   * @param splitSizeInMB size of Cassandra data to be read in a single Spark task; 
   *                      determines the number of partitions, but ignored if `splitCount` is set
   * @param fetchSizeInRows number of CQL rows to fetch in a single round-trip to Cassandra
-  * @param consistencyLevel consistency level for reads, default LOCAL_ONE;
+  * @param consistencyLevel consistency level for reads, default YB_CONSISTENT_PREFIX;
   *                         higher consistency level will disable data-locality
   * @param taskMetricsEnabled whether or not enable task metrics updates (requires Spark 1.2+)
   * @param readsPerSec maximum read throughput allowed per single core in requests/s while
@@ -70,7 +70,7 @@ object ReadConf extends Logging {
   val ConsistencyLevelParam = ConfigParameter[ConsistencyLevel](
     name = "spark.cassandra.input.consistency.level",
     section = ReferenceSection,
-    default = DefaultConsistencyLevel.LOCAL_ONE,
+    default = ConsistencyLevel.YB_CONSISTENT_PREFIX,
     description = """Consistency level to use when reading	""")
 
   val TaskMetricParam = ConfigParameter[Boolean](

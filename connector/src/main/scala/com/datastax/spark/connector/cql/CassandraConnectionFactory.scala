@@ -14,6 +14,7 @@ import com.datastax.oss.driver.internal.core.connection.ExponentialReconnectionP
 import com.datastax.oss.driver.internal.core.ssl.DefaultSslEngineFactory
 import com.datastax.spark.connector.rdd.ReadConf
 import com.datastax.spark.connector.util.{ConfigParameter, DeprecatedConfigParameter, ReflectionUtil}
+import com.yugabyte.oss.driver.internal.core.loadbalancing.PartitionAwarePolicy
 import org.apache.spark.{SparkConf, SparkEnv, SparkFiles}
 import org.slf4j.LoggerFactory
 
@@ -80,7 +81,7 @@ object DefaultConnectionFactory extends CassandraConnectionFactory {
     def ipBasedConnectionProperties(ipConf: IpBasedContactInfo) = (builder: PDCLB) => {
       builder
         .withStringList(CONTACT_POINTS, ipConf.hosts.map(h => s"${h.getHostString}:${h.getPort}").toList.asJava)
-        .withClass(LOAD_BALANCING_POLICY_CLASS, classOf[LocalNodeFirstLoadBalancingPolicy])
+        .withClass(LOAD_BALANCING_POLICY_CLASS, classOf[PartitionAwarePolicy])
 
       def clientAuthEnabled(value: Option[String]) =
         if (ipConf.cassandraSSLConf.clientAuthEnabled) value else None
@@ -120,6 +121,7 @@ object DefaultConnectionFactory extends CassandraConnectionFactory {
 
     val initialBuilder = CqlSession.builder()
 
+    logger.info(s"Creating CqlSession from contact info ${conf.contactInfo}");
     val builderWithContactInfo =  conf.contactInfo match {
       case ipConf: IpBasedContactInfo =>
         ipConf.authConf.authProvider.fold(initialBuilder)(initialBuilder.withAuthProvider)

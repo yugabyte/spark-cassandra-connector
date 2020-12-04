@@ -1,0 +1,8 @@
+{
+  "phabricator.uri" : "https://phabricator.dev.yugabyte.com/",
+  "repository.callsign": "SCC",
+  "git:arc.feature.start.default" : "origin/3.0-yb",
+  "arc.land.onto.default": "3.0-yb",
+  "arc.land.remote.default": "origin",
+  "arc.feature.start.default" : "3.0-yb"
+}
