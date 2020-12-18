@@ -1,5 +1,9 @@
 package com.datastax.spark.connector.rdd.partitioner
 
+import java.net.InetSocketAddress
+import java.util.NavigableMap
+import java.util.TreeMap;
+
 import com.datastax.oss.driver.api.core.CqlIdentifier
 import com.datastax.oss.driver.api.core.metadata.TokenMap
 import com.datastax.oss.driver.api.core.metadata.token.{TokenRange => DriverTokenRange}
@@ -12,10 +16,12 @@ import com.datastax.spark.connector.util.DriverUtil._
 import com.datastax.spark.connector.util.{DriverUtil, Logging}
 import com.datastax.spark.connector.ColumnSelector
 import com.datastax.spark.connector.cql.{CassandraConnector, TableDef}
-import com.datastax.spark.connector.rdd.partitioner.dht.{Token, TokenFactory}
+import com.datastax.spark.connector.rdd.partitioner.dht.{LongToken, Token, TokenFactory}
 import com.datastax.spark.connector.writer.RowWriterFactory
 import org.apache.spark.sql.connector.read.InputPartition
-
+import com.yugabyte.oss.driver.internal.core.loadbalancing.PartitionAwarePolicy
+import com.yugabyte.oss.driver.api.core.DefaultPartitionMetadata
+import com.yugabyte.oss.driver.api.core.PartitionMetadata
 
 /** Creates CassandraPartitions for given Cassandra table */
 private[connector] class CassandraPartitionGenerator[V, T <: Token[V]](
@@ -79,7 +85,50 @@ private[connector] class CassandraPartitionGenerator[V, T <: Token[V]](
 
   def partitions: Seq[CassandraPartition[V, T]] = {
     val hostAddresses = new NodeAddresses(connector)
-    val tokenRanges = describeRing
+    // Try to get table-specific partition map from table metadata (for YugaByte).
+    val partitionMap: NavigableMap[Integer, PartitionMetadata] = connector withSessionDo { session =>
+      val partitionMetadata = session.getMetadata.getDefaultPartitionMetadata
+      if (!partitionMetadata.isPresent()) {
+        new TreeMap[Integer, PartitionMetadata]()
+      } else {
+        var metadata = partitionMetadata.get.asInstanceOf[DefaultPartitionMetadata]
+        if (metadata == null) {
+          new TreeMap[Integer, PartitionMetadata]()
+        } else {
+          var splitMeta = metadata.getTableSplitMetadata(tableDef.keyspaceName, tableDef.tableName)
+          if (splitMeta == null) {
+            new TreeMap[Integer, PartitionMetadata]()
+          } else {
+            splitMeta.getPartitionMap()
+          }
+        }
+      }
+    }
+
+    val tokenRanges : Seq[TokenRange] = if (partitionMap != null) {
+      // Compute map from (start) token to corresponding hosts based on the partition map.
+      // Converting token map into Sequence of TokenRanges describing the ring for this table.
+      var ranges = partitionMap.values.toSeq.map { partition =>
+        val startToken = tokenFactory.tokenFromString(PartitionAwarePolicy.YBToCqlHashCode(partition.getStartKey()).toString)
+        val endToken = tokenFactory.tokenFromString(PartitionAwarePolicy.YBToCqlHashCode(partition.getEndKey()).toString)
+        val hosts = partition.getHosts().map(_.getEndPoint().resolve.asInstanceOf[InetSocketAddress].getAddress).toSet
+        new TokenRange(startToken, endToken, hosts, tokenFactory)
+      }
+      if (ranges.isEmpty) {
+        describeRing
+      } else {
+        ranges match {
+          case head #:: rest =>
+            // If the partition map is empty, fall back to Cassandra way of choosing ranges
+            if (head.replicas.isEmpty)
+              ranges = describeRing
+        }
+        ranges
+      }
+    } else {
+      // If YugaByte partition map is missing, default to Cassandra behavior.
+      describeRing
+    }
     val endpointCount = tokenRanges.map(_.replicas).reduce(_ ++ _).size
     if (endpointCount == 0)
       throw new IllegalArgumentException(s"Could not retrieve endpoints for the given table " +
