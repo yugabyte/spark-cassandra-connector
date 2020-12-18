@@ -48,7 +48,7 @@ class LocalNodeFirstLoadBalancingPolicy(context: DriverContext, profileName: Str
 
   private def distance(node: Node): NodeDistance =
     if (nodeFilter.forall(_.test(node)) && node.getDatacenter == dcToUse) {
-      sameDCNodeDistance(node)
+      NodeDistance.LOCAL
     } else {
       // this insures we keep remote hosts out of our list entirely, even when we get notified of newly joined nodes
       NodeDistance.IGNORED
@@ -114,11 +114,7 @@ class LocalNodeFirstLoadBalancingPolicy(context: DriverContext, profileName: Str
     val replicas = getReplicas(request, session)
       .filter(node => node.getState == NodeState.UP && distance(node) != NodeDistance.IGNORED)
 
-    val nodes = if (replicas.nonEmpty) {
-      replicaAwareQueryPlan(request, replicas)
-    } else {
-      tokenUnawareQueryPlan(request)
-    }
+    val nodes = tokenUnawareQueryPlan(request)
     new QueryPlan(nodes: _*)
   }
 
@@ -142,12 +138,6 @@ class LocalNodeFirstLoadBalancingPolicy(context: DriverContext, profileName: Str
   }
 
   override def onDown(node: Node): Unit = {}
-
-  private def sameDCNodeDistance(node: Node): NodeDistance =
-    if (isLocalHost(node))
-      NodeDistance.LOCAL
-    else
-      NodeDistance.REMOTE
 }
 
 object LocalNodeFirstLoadBalancingPolicy {
