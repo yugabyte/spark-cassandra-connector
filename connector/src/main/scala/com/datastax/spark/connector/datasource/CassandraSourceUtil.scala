@@ -45,6 +45,7 @@ object CassandraSourceUtil extends Logging {
     TIMESTAMP -> SparkSqlTimestampType,
     TIMEUUID -> StringType,
     UUID -> StringType,
+    JSONB -> StringType,
     VARINT -> SparkSqlDecimalType(38, 0)
   )
 

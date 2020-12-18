@@ -37,6 +37,7 @@ object DataTypeConverter extends Logging {
     connector.types.BlobType       -> catalystTypes.BinaryType,
     connector.types.DateType       -> catalystTypes.DateType,
     connector.types.TimeType       -> catalystTypes.LongType,
+    connector.types.JsonType       -> catalystTypes.StringType,
     connector.types.DurationType   -> catalystTypes.StringType,
     connector.types.DateRangeType  -> catalystTypes.StringType
   )

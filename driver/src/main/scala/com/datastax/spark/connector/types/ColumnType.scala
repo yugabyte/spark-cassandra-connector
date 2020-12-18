@@ -64,6 +64,7 @@ object ColumnType {
     DriverDataTypes.COUNTER -> CounterType,
     DriverDataTypes.DATE -> DateType,
     DriverDataTypes.TIME -> TimeType,
+    DriverDataTypes.JSONB -> JsonType,
     DriverDataTypes.DURATION -> DurationType,
     DseDataTypes.POINT -> PointType,
     DseDataTypes.POLYGON -> PolygonType,

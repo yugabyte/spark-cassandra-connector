@@ -1,5 +1,6 @@
 3.0.0-yb-1
  * Add load balancing policy for YugaByte
+ * Support for jsonb columns
 
 3.0.0
  * Update Spark to 3.0.1 and commons-lang to 3.9

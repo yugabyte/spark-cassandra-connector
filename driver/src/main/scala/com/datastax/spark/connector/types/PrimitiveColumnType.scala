@@ -193,3 +193,11 @@ case object DateRangeType extends PrimitiveColumnType[DateRange] {
     new OptionToNullConverter(TypeConverter.forType[DateRange])
 }
 
+/* Type object for jsonb, similar to the cassandra java driver API we simply encode this as String. */
+case object JsonType extends PrimitiveColumnType[String] {
+  def scalaTypeTag = implicitly[TypeTag[String]]
+  def cqlTypeName = "jsonb"
+  def converterToCassandra =
+    new TypeConverter.OptionToNullConverter(TypeConverter.forType[String])
+}
+
