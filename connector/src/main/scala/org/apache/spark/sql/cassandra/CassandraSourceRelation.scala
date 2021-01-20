@@ -76,6 +76,15 @@ object CassandraSourceRelation extends Logging {
         |columname will be used to set the TTL for that row.""".stripMargin
   )
 
+  val GetJsonObjectParam = ConfigParameter[Option[String]](
+    name = "getjsonobject",
+    section = TableOptions,
+    default = None,
+    description =
+      """Surfaces the JSONB expression as a Column
+        |with the name specified.""".stripMargin
+  )
+
   val AdditionalCassandraPushDownRulesParam = ConfigParameter[List[CassandraPredicateRules]](
     name = "spark.cassandra.sql.pushdown.additionalClasses",
     section = ReferenceSection,

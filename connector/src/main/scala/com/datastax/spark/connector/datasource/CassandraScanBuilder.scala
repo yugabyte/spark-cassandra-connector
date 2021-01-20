@@ -10,7 +10,7 @@ import com.datastax.spark.connector.rdd.{CqlWhereClause, ReadConf}
 import com.datastax.spark.connector.types.{InetType, UUIDType, VarIntType}
 import com.datastax.spark.connector.util.Quote.quote
 import com.datastax.spark.connector.util.{Logging, ReflectionUtil}
-import com.datastax.spark.connector.{ColumnRef, RowCountRef, TTL, WriteTime}
+import com.datastax.spark.connector.{ColumnRef, JsonObject, RowCountRef, TTL, WriteTime}
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.cassandra.CassandraSourceRelation.{AdditionalCassandraPushDownRulesParam, InClauseToJoinWithTableConversionThreshold}
 import org.apache.spark.sql.cassandra.{AnalyzedPredicates, Auto, BasicCassandraPredicatePushDown, CassandraPredicateRules, CassandraSourceRelation, DsePredicateRules, DseSearchOptimizationSetting, InClausePredicateRules, Off, On, SolrConstants, SolrPredicateRules}
@@ -133,9 +133,11 @@ case class CassandraScanBuilder(
 
   val TTLCapture = "TTL\\((.*)\\)".r
   val WriteTimeCapture = "WRITETIME\\((.*)\\)".r
+  val JSONCapture = "(.*)->(.*)".r
 
   override def pruneColumns(requiredSchema: StructType): Unit = {
     selectedColumns = requiredSchema.fieldNames.collect {
+      case name@JSONCapture(column, field) => JsonObject(s"${column}->${field}", Some(name))
       case name@TTLCapture(column) => TTL(column, Some(name))
       case name@WriteTimeCapture(column) => WriteTime(column, Some(name))
       case column => tableDef.columnByName(column).ref

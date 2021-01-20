@@ -68,6 +68,16 @@ case class CollectionColumnName(
   def remove = copy(collectionBehavior = CollectionRemove)
 }
 
+/** References field of a JSON column. */
+case class JsonObject(columnName: String, alias: Option[String] = None) extends ColumnRef {
+  override val cql = s"""$columnName"""
+  override val cqlValueName = s"$columnName"
+  override def selectedAs = alias.getOrElse(cqlValueName)
+  override def toString: String = cqlValueName
+
+  def as(alias: String) = copy(alias = Some(alias))
+}
+
 /** References TTL of a column. */
 case class TTL(columnName: String, alias: Option[String] = None) extends ColumnRef {
   override val cql = s"""TTL("$columnName")"""

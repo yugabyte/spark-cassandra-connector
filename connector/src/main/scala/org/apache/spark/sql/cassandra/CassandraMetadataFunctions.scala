@@ -1,5 +1,7 @@
 package org.apache.spark.sql.cassandra
 
+import scala.util.parsing.combinator.RegexParsers
+
 import com.datastax.spark.connector.datasource.CassandraTable
 import org.apache.spark.sql.catalyst.FunctionIdentifier
 import org.apache.spark.sql.catalyst.analysis.UnresolvedAttribute
@@ -7,6 +9,7 @@ import org.apache.spark.sql.catalyst.expressions.{Alias, AttributeReference, Exp
 import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, Project}
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.datasources.v2.DataSourceV2Relation
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{AnalysisException, SparkSession, functions}
 
@@ -34,6 +37,16 @@ case class CassandraTTL(child: Expression) extends CassandraMetadataFunction {
   override def confParam: String = CassandraSourceRelation.TTLParam.name
 }
 
+case class GetJsonObject(child: Expression) extends CassandraMetadataFunction {
+  override def nullable: Boolean = false
+
+  override def sql: String = s"${child.sql}"
+
+  override def dataType: DataType = StringType
+
+  override def confParam: String = CassandraSourceRelation.GetJsonObjectParam.name
+}
+
 case class CassandraWriteTime(child: Expression) extends CassandraMetadataFunction {
   override def nullable: Boolean = false
 
@@ -44,7 +57,66 @@ case class CassandraWriteTime(child: Expression) extends CassandraMetadataFuncti
   override def confParam: String = CassandraSourceRelation.WriteTimeParam.name
 }
 
+sealed trait PathInstruction
+object PathInstruction {
+  case object Subscript extends PathInstruction
+  case object Wildcard extends PathInstruction
+  case object Key extends PathInstruction
+  case class Index(index: Long) extends PathInstruction
+  case class Named(name: String) extends PathInstruction
+}
+
+private[this] object JsonPathParser extends RegexParsers {
+  import PathInstruction._
+
+  def root: Parser[Char] = '$'
+
+  def long: Parser[Long] = "\\d+".r ^? {
+    case x => x.toLong
+  }
+
+  // parse `[*]` and `[123]` subscripts
+  def subscript: Parser[List[PathInstruction]] =
+    for {
+      operand <- '[' ~> ('*' ^^^ Wildcard | long ^^ Index) <~ ']'
+    } yield {
+      Subscript :: operand :: Nil
+    }
+
+  // parse `.name` or `['name']` child expressions
+  def named: Parser[List[PathInstruction]] =
+    for {
+      name <- '.' ~> "[^\\.\\[]+".r | "['" ~> "[^\\'\\?]+".r <~ "']"
+    } yield {
+      Key :: Named(name) :: Nil
+    }
+
+  // child wildcards: `..`, `.*` or `['*']`
+  def wildcard: Parser[List[PathInstruction]] =
+    (".*" | "['*']") ^^^ List(Wildcard)
+
+  def node: Parser[List[PathInstruction]] =
+    wildcard |
+      named |
+      subscript
+
+  val expression: Parser[List[PathInstruction]] = {
+    phrase(root ~> rep(node) ^^ (x => x.flatten))
+  }
+
+  def parse(str: String): Option[List[PathInstruction]] = {
+    this.parseAll(expression, str) match {
+      case Success(result, _) =>
+        Some(result)
+
+      case _ =>
+        None
+    }
+  }
+}
+
 object CassandraMetadataFunction {
+  import PathInstruction._
 
   def registerMetadataFunctions(session: SparkSession): Unit = {
     session.sessionState.functionRegistry.registerFunction(
@@ -66,6 +138,29 @@ object CassandraMetadataFunction {
         s" $args")
     }
     CassandraTTL(args.head)
+  }
+
+  val getJsonObjectFunctionDescriptor  = (
+    FunctionIdentifier("get_json_object"),
+    new ExpressionInfo(getClass.getSimpleName, "get_json_object"),
+    (input: Seq[Expression]) => CassandraMetadataFunction.getJsonObjectFunctionBuilder(input))
+
+  def getJsonObjectFunctionBuilder(args: Seq[Expression]) = {
+    if (args.length != 2) {
+      throw new AnalysisException(s"Unable to call get_json_object , given" +
+        s" $args")
+    }
+    val colName = args(0).toString.split("#")(0)
+    val pis = JsonPathParser.parse(args(1).toString).get
+    var path = ""
+    for (pi <- pis) {
+      pi match {
+        case nm: PathInstruction.Named => path += "->'" + nm.name + "'"
+        case idx: PathInstruction.Index => path += "->" + idx.index + ""
+        case _ => Nil
+      }
+    }
+    GetJsonObject(lit(colName + path).expr)
   }
 
   val cassandraWriteTimeFunctionDescriptor  = (
@@ -91,12 +186,15 @@ object CassandraMetaDataRule extends Rule[LogicalPlan] {
 
   def replaceMetadata(metaDataExpression: CassandraMetadataFunction, plan: LogicalPlan)
   : LogicalPlan = {
-    assert(metaDataExpression.child.isInstanceOf[AttributeReference],
-      s"""Can only use Cassandra Metadata Functions on Attribute References,
-         |found a ${metaDataExpression.child.getClass}""".stripMargin)
-
-    val cassandraColumnName = metaDataExpression.child.asInstanceOf[AttributeReference].name
-    val cassandraCql = s"${metaDataExpression.cql}($cassandraColumnName)"
+    var cassandraColumnName = ""
+    var cassandraCql = ""
+    if (metaDataExpression.child.isInstanceOf[AttributeReference]) {
+      cassandraColumnName = metaDataExpression.child.asInstanceOf[AttributeReference].name
+      cassandraCql = s"${metaDataExpression.cql}($cassandraColumnName)"
+    } else {
+      cassandraColumnName = metaDataExpression.child.toString.split("->")(0)
+      cassandraCql = metaDataExpression.child.toString
+    }
 
     val (cassandraTable) = plan.collectFirst {
       case DataSourceV2Relation(table: CassandraTable, _, _, _, _)

@@ -12,6 +12,7 @@ class CassandraSparkExtensions extends (SparkSessionExtensions => Unit) with Log
     extensions.injectPlannerStrategy(CassandraDirectJoinStrategy.apply)
     extensions.injectResolutionRule(session => CassandraMetaDataRule)
     extensions.injectFunction(CassandraMetadataFunction.cassandraTTLFunctionDescriptor)
+    extensions.injectFunction(CassandraMetadataFunction.getJsonObjectFunctionDescriptor)
     extensions.injectFunction(CassandraMetadataFunction.cassandraWriteTimeFunctionDescriptor)
   }
 }
