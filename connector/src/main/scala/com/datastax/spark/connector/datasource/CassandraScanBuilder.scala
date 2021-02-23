@@ -201,16 +201,20 @@ case class CassandraScanBuilder(
 
   override def pushedFilters(): Array[Filter] = filtersForCassandra
 
+  private def quoteAttribute(attribute: String) : String = {
+    if (attribute contains "->") attribute else quote(attribute)
+  }
+
   /** Construct Cql clause and retrieve the values from filter */
   private def filterToCqlAndValue(filter: Any): (String, Seq[Any]) = {
     filter match {
-      case sources.EqualTo(attribute, value) => (s"${quote(attribute)} = ?", Seq(toCqlValue(attribute, value)))
-      case sources.LessThan(attribute, value) => (s"${quote(attribute)} < ?", Seq(toCqlValue(attribute, value)))
-      case sources.LessThanOrEqual(attribute, value) => (s"${quote(attribute)} <= ?", Seq(toCqlValue(attribute, value)))
-      case sources.GreaterThan(attribute, value) => (s"${quote(attribute)} > ?", Seq(toCqlValue(attribute, value)))
-      case sources.GreaterThanOrEqual(attribute, value) => (s"${quote(attribute)} >= ?", Seq(toCqlValue(attribute, value)))
+      case sources.EqualTo(attribute, value) => (s"${quoteAttribute(attribute)} = ?", Seq(toCqlValue(attribute, value)))
+      case sources.LessThan(attribute, value) => (s"${quoteAttribute(attribute)} < ?", Seq(toCqlValue(attribute, value)))
+      case sources.LessThanOrEqual(attribute, value) => (s"${quoteAttribute(attribute)} <= ?", Seq(toCqlValue(attribute, value)))
+      case sources.GreaterThan(attribute, value) => (s"${quoteAttribute(attribute)} > ?", Seq(toCqlValue(attribute, value)))
+      case sources.GreaterThanOrEqual(attribute, value) => (s"${quoteAttribute(attribute)} >= ?", Seq(toCqlValue(attribute, value)))
       case sources.In(attribute, values) =>
-        (quote(attribute) + " IN " + values.map(_ => "?").mkString("(", ", ", ")"), toCqlValues(attribute, values))
+        (quoteAttribute(attribute) + " IN " + values.map(_ => "?").mkString("(", ", ", ")"), toCqlValues(attribute, values))
       case _ =>
         throw new UnsupportedOperationException(
           s"It's not a valid filter $filter to be pushed down, only >, <, >=, <= and In are allowed.")

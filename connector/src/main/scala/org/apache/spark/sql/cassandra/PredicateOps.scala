@@ -2,6 +2,7 @@ package org.apache.spark.sql.cassandra
 
 import org.apache.spark.sql.catalyst.expressions
 import org.apache.spark.sql.catalyst.expressions.Expression
+import org.apache.spark.sql.catalyst.expressions.GetJsonObject
 import org.apache.spark.sql.sources
 import org.apache.spark.sql.sources.Filter
 
@@ -27,6 +28,8 @@ trait PredicateOps[Predicate] {
 
   /** Returns true for predicates of type: column IN (value1, value2, ...) */
   def isInPredicate(p: Predicate): Boolean
+
+  def isJsonObjPredicate(p: Predicate): Boolean
 }
 
 /** Provides `PredicateOps` adapters for Expression and Filter classes */
@@ -54,6 +57,10 @@ object PredicateOps {
     override def isEqualToPredicate(p: Expression): Boolean =
       p.isInstanceOf[expressions.EqualTo]
 
+    /** FilterOps#isJsonObjPredicate is the func which fulfills the pushdown */
+    override def isJsonObjPredicate(p: Expression): Boolean =
+      false
+
     override def isInPredicate(p: Expression): Boolean =
       p.isInstanceOf[expressions.In] || p.isInstanceOf[expressions.InSet]
 
@@ -69,6 +76,7 @@ object PredicateOps {
       case gt: sources.GreaterThan => gt.attribute
       case gte: sources.GreaterThanOrEqual => gte.attribute
       case in: sources.In => in.attribute
+      case notnull: sources.IsNotNull => notnull.attribute
       case _ => throw new IllegalArgumentException(
         s"Don't know how to get column name from the predicate: $p")
     }
@@ -86,6 +94,13 @@ object PredicateOps {
 
     override def isEqualToPredicate(p: Filter): Boolean =
       p.isInstanceOf[sources.EqualTo]
+
+    val JSONCapture = "(.*)->>(.*)".r
+    override def isJsonObjPredicate(p: Filter): Boolean =
+      columnName(p) match {
+        case JSONCapture(column,field) => true
+        case _ => false
+      }
 
     override def isInPredicate(p: Filter): Boolean =
       p.isInstanceOf[sources.In]

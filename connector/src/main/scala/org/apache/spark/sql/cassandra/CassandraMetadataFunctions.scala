@@ -140,6 +140,36 @@ object CassandraMetadataFunction {
     CassandraTTL(args.head)
   }
 
+  val getJsonStringFunctionDescriptor  = (
+    FunctionIdentifier("get_json_string"),
+    new ExpressionInfo(getClass.getSimpleName, "get_json_string"),
+    (input: Seq[Expression]) => CassandraMetadataFunction.getJsonStringFunctionBuilder(input))
+
+  def getJsonStringFunctionBuilder(args: Seq[Expression]) = {
+    if (args.length != 2) {
+      throw new AnalysisException(s"Unable to call get_json_string , given" +
+        s" $args")
+    }
+    val colName = args(0).toString.split("#")(0)
+    val pis = JsonPathParser.parse(args(1).toString).get
+    var path = ""
+    val len = pis.length
+    var i = 0
+    for (pi <- pis) {
+      var arrow = "->"
+      if (i == len-1) arrow = "->>"
+      pi match {
+        case nm: PathInstruction.Named =>
+          path += arrow + "'" + nm.name + "'"
+        case idx: PathInstruction.Index =>
+          path += arrow + idx.index
+        case _ => Nil
+      }
+      i = i+1
+    }
+    GetJsonObject(lit(colName + path).expr)
+  }
+
   val getJsonObjectFunctionDescriptor  = (
     FunctionIdentifier("get_json_object"),
     new ExpressionInfo(getClass.getSimpleName, "get_json_object"),
@@ -153,12 +183,17 @@ object CassandraMetadataFunction {
     val colName = args(0).toString.split("#")(0)
     val pis = JsonPathParser.parse(args(1).toString).get
     var path = ""
+    val len = pis.length
+    var i = 0
     for (pi <- pis) {
       pi match {
-        case nm: PathInstruction.Named => path += "->'" + nm.name + "'"
-        case idx: PathInstruction.Index => path += "->" + idx.index + ""
+        case nm: PathInstruction.Named =>
+          path += "->'" + nm.name + "'"
+        case idx: PathInstruction.Index =>
+          path += "->" + idx.index
         case _ => Nil
       }
+      i = i+1
     }
     GetJsonObject(lit(colName + path).expr)
   }

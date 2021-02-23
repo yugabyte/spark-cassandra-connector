@@ -3,6 +3,8 @@ package org.apache.spark.sql.cassandra
 import com.datastax.oss.driver.api.core.{DefaultProtocolVersion, ProtocolVersion}
 import com.datastax.spark.connector.cql.TableDef
 import com.datastax.spark.connector.types.TimeUUIDType
+import org.apache.spark.sql.sources
+import org.apache.spark.sql.sources.Filter
 
 /**
  *  Determines which filter predicates can be pushed down to Cassandra.
@@ -44,6 +46,8 @@ class BasicCassandraPredicatePushDown[Predicate : PredicateOps](
   private val indexedColumns = table.indexedColumns.map(_.columnName)
 
   private val singleColumnPredicates = predicates.filter(Predicates.isSingleColumnPredicate)
+
+  private val jsonObjPredicates = predicates.filter(Predicates.isJsonObjPredicate)
 
   private val eqPredicates = singleColumnPredicates.filter(Predicates.isEqualToPredicate)
   private val eqPredicatesByName =
@@ -108,6 +112,18 @@ class BasicCassandraPredicatePushDown[Predicate : PredicateOps](
       (eqColumns.flatMap(eqPredicatesByName) ++ inColumns.flatMap(inPredicatesByName)).toSet
     else
       Set.empty
+  }
+
+  private val JSONCapture = "(.*)->>(.*)".r
+  private val dummy = sources.EqualTo("foo", "bar").asInstanceOf[Predicate]
+  private def transformGetJsonObject(p: Predicate): Predicate = {
+    if (p.isInstanceOf[sources.IsNotNull]) return dummy
+    if (p.isInstanceOf[sources.In]) return dummy
+    p
+  }
+
+  private val jsonObjPredicatesToPushDown: Set[Predicate] = {
+    jsonObjPredicates.map(transformGetJsonObject).filter(!_.equals(dummy)).toSet[Predicate]
   }
 
   /**
@@ -190,12 +206,13 @@ class BasicCassandraPredicatePushDown[Predicate : PredicateOps](
   val predicatesToPushDown: Set[Predicate] =
     partitionKeyPredicatesToPushDown ++
       clusteringColumnPredicatesToPushDown ++
-      indexedColumnPredicatesToPushDown
+      indexedColumnPredicatesToPushDown ++
+      jsonObjPredicatesToPushDown
 
   /** Returns the set of predicates that cannot be pushed down to Cassandra,
     * so they must be applied by Spark  */
   val predicatesToPreserve: Set[Predicate] =
-    predicates -- predicatesToPushDown
+    predicates -- predicatesToPushDown -- jsonObjPredicates
 
 
   val unhandledTimeUUIDNonEqual = {
