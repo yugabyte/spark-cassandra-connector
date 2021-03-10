@@ -334,10 +334,21 @@ object CassandraConnectorConf extends Logging {
 
   private def maybeResolveHostAndPort(hostAndPort: String, defaultPort: Int,
                                       resolveContactPoints: Boolean): Option[InetSocketAddress] = {
-    val (hostName, port) = if (hostAndPort.contains(":")) {
-      val splitStr = hostAndPort.split(":")
-      if (splitStr.length!= 2) throw new IllegalArgumentException(s"Couldn't parse host $hostAndPort")
-      (splitStr(0), splitStr(1).toInt)
+    val rightBracket = hostAndPort.indexOf("]")
+    val lastColon = hostAndPort.lastIndexOf(":")
+    val (hostName, port) = if (rightBracket >= 0 && lastColon > rightBracket || rightBracket < 0 && lastColon >= 0) {
+      if (rightBracket < 0) {
+        val splitStr = hostAndPort.split(":")
+        if (splitStr.length!= 2) throw new IllegalArgumentException(s"Couldn't parse host $hostAndPort")
+        (splitStr(0), splitStr(1).toInt)
+      } else {
+        // host is specified in IPv6
+        if (hostAndPort.length() <= rightBracket+3)
+          throw new IllegalArgumentException(s"Couldn't parse host $hostAndPort")
+        if (hostAndPort.charAt(rightBracket+1) != ':')
+          throw new IllegalArgumentException(s"Couldn't parse host $hostAndPort due to missing colon")
+        (hostAndPort.substring(1, rightBracket), hostAndPort.substring(rightBracket+2).toInt)
+      }
     } else {
       (hostAndPort, defaultPort)
     }
