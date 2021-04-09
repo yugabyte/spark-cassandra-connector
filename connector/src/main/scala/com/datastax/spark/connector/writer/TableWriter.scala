@@ -7,7 +7,7 @@ import com.datastax.oss.driver.api.core.CqlSession
 import com.datastax.oss.driver.api.core.cql.{DefaultBatchType, PreparedStatement, SimpleStatement}
 import com.datastax.spark.connector._
 import com.datastax.spark.connector.cql._
-import com.datastax.spark.connector.types.{ListType, MapType}
+import com.datastax.spark.connector.types.{JsonType, ListType, MapType}
 import com.datastax.spark.connector.util.Quote._
 import com.datastax.spark.connector.util._
 import com.datastax.spark.connector.writer.AsyncExecutor.Handler
@@ -33,7 +33,9 @@ class TableWriter[T] private (
   val keyspaceName = tableDef.keyspaceName
   val tableName = tableDef.tableName
   val columnNames = rowWriter.columnNames diff writeConf.optionPlaceholders
-  val columns = columnNames.map(tableDef.columnByName)
+  private val columnNameSet = columnNames.toSet
+  private val unknownColumnNameSet = columnNameSet.diff(tableDef.columnNames.toSet)
+  val columns = columnNameSet.diff(unknownColumnNameSet).map(tableDef.columnByName).toSeq
 
   private[connector] lazy val queryTemplateUsingInsert: String = {
     val quotedColumnNames: Seq[String] = columnNames.map(quote)
@@ -93,11 +95,40 @@ class TableWriter[T] private (
         case Some(CollectionPrepend)          => s"$quotedName = :$quotedName + $quotedName"
         case Some(CollectionRemove)           => s"$quotedName = $quotedName - :$quotedName"
         case Some(CollectionOverwrite) | None => s"$quotedName = :$quotedName"
-      }
+    }
 
     def quotedColumnNames(columns: Seq[ColumnDef]) = columns.map(_.columnName).map(quote)
     val setCounterColumnsClause = quotedColumnNames(counterColumns).map(c => s"$c = $c + :$c")
-    val setClause = (setNonCounterColumnsClause ++ setCounterColumnsClause).mkString(", ")
+    var setClause = ""
+    if (connector.conf.mergeableJsonColumnMapping != None) {
+      // parse the mapping and populate fieldToColMap
+      var fieldToColMap:scala.collection.mutable.Map[String, String] = scala.collection.mutable.Map.empty
+      for (s <- connector.conf.mergeableJsonColumnMapping.getOrElse("").split(";")) {
+        if (!(s contains ":")) {
+          throw new IllegalArgumentException(s"$s misses column specification")
+        }
+        val pair=s.split(":");
+        for (v <- pair(0).split(",")) {
+          fieldToColMap += (v -> pair(1))
+        }
+      }
+      val jsonColumnsClause = for {
+        name <- unknownColumnNameSet
+        quotedName = quote(name)
+      } yield {
+        if (!fieldToColMap.contains(name)) {
+          throw new IllegalArgumentException(s"$name is not in jsonb column mapping for $tableName")
+        }
+        val colName = fieldToColMap(name)
+        s"$colName->'$name' = :$quotedName"
+      }
+      setClause = (setNonCounterColumnsClause ++ setCounterColumnsClause ++ jsonColumnsClause).mkString(", ")
+    } else {
+      if (unknownColumnNameSet.nonEmpty) {
+        throw new IllegalArgumentException(s"JSON column mapping is missing")
+      }
+      setClause = (setNonCounterColumnsClause ++ setCounterColumnsClause).mkString(", ")
+    }
     val whereClause = quotedColumnNames(primaryKey).map(c => s"$c = :$c").mkString(" AND ")
 
     s"UPDATE ${quote(keyspaceName)}.${quote(tableName)} SET $setClause WHERE $whereClause"
@@ -180,7 +211,7 @@ class TableWriter[T] private (
     writeInternal(getAsyncWriterInternal(deleteQueryTemplate(columns)), taskContext, data)
 
   def getAsyncWriter(): AsyncStatementWriter[T] = {
-    if (isCounterUpdate || containsCollectionBehaviors) {
+    if (unknownColumnNameSet.nonEmpty || isCounterUpdate || containsCollectionBehaviors) {
       getAsyncWriterInternal(queryTemplateUsingUpdate)
     }
     else {
@@ -294,9 +325,6 @@ object TableWriter {
   private def checkMissingColumns(table: TableDef, columnNames: Seq[String]) {
     val allColumnNames = table.columns.map(_.columnName)
     val missingColumns = columnNames.toSet -- allColumnNames
-    if (missingColumns.nonEmpty)
-      throw new IllegalArgumentException(
-        s"Column(s) not found: ${missingColumns.mkString(", ")}")
   }
 
   private def checkMissingPrimaryKeyColumns(table: TableDef, columnNames: Seq[String]) {

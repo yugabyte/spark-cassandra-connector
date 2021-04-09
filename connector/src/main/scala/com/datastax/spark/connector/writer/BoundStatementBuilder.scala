@@ -3,6 +3,7 @@ package com.datastax.spark.connector.writer
 import com.datastax.oss.driver.api.core.`type`.DataType
 import com.datastax.oss.driver.api.core.cql.{BoundStatement, PreparedStatement}
 import com.datastax.oss.driver.api.core.{DefaultProtocolVersion, ProtocolVersion}
+import com.datastax.spark.connector.datasource.InternalRowWriter
 import com.datastax.spark.connector.types.{ColumnType, Unset}
 import com.datastax.spark.connector.util.{CodecRegistryUtil, Logging}
 
@@ -18,6 +19,7 @@ private[connector] class BoundStatementBuilder[T](
     val ignoreNulls: Boolean = false,
     val protocolVersion: ProtocolVersion) extends Logging {
 
+  private val internalWriter = if (rowWriter.isInstanceOf[InternalRowWriter]) rowWriter.asInstanceOf[InternalRowWriter] else null
   private val columnNames = rowWriter.columnNames.toIndexedSeq
   private val columnTypes = columnNames.map(preparedStmt.getVariableDefinitions.get(_).getType)
   private val converters = columnTypes.map(ColumnType.converterToCassandra(_))
@@ -105,7 +107,13 @@ private[connector] class BoundStatementBuilder[T](
       val converter = converters(i)
       val columnName = columnNames(i)
       val columnType = columnTypes(i)
-      val columnValue = converter.convert(buffer(i))
+      var columnValue = converter.convert(buffer(i))
+      if (columnValue == null && !ignoreNulls && internalWriter != null) {
+        if (internalWriter.unknownColumnNameSet.contains(columnName)) {
+          // plugin 'null' for missing jsonb field value
+          columnValue = "null"
+        }
+      }
       bindColumn(boundStatement, columnName, columnType, columnValue)
       val serializedValue = boundStatement.stmt.getBytesUnsafe(i)
       if (serializedValue != null) bytesCount += serializedValue.remaining()

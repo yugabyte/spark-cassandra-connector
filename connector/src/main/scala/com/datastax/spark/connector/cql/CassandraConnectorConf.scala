@@ -50,6 +50,7 @@ case class ProfileFileBasedContactInfo(path: String) extends ContactInfo {
 case class CassandraConnectorConf(
   contactInfo: ContactInfo,
   localDC: Option[String] = CassandraConnectorConf.LocalDCParam.default,
+  mergeableJsonColumnMapping: Option[String] = CassandraConnectorConf.MergeableJsonColumnMappingParam.default,
   keepAliveMillis: Int = CassandraConnectorConf.KeepAliveMillisParam.default,
   minReconnectionDelayMillis: Int = CassandraConnectorConf.MinReconnectionDelayParam.default,
   maxReconnectionDelayMillis: Int = CassandraConnectorConf.MaxReconnectionDelayParam.default,
@@ -112,6 +113,16 @@ object CassandraConnectorConf extends Logging {
         |may also be used. Ports may be provided but are optional. If Ports are missing ${ConnectionPortParam.name} will
         | be used ("127.0.0.1:9042,192.168.0.1:9051")
       """.stripMargin)
+
+  val MergeableJsonColumnMappingParam = ConfigParameter[Option[String]](
+    name = "spark.cassandra.mergeable.json.column.mapping",
+    section = ReferenceSection,
+    default = None,
+    description = """The field to column mapping of JSONB columns which should adopt merge semantics when writing.
+      | Each mapping starts with the field names, separated by comma, then a colon, followed by column name.
+      | The mappings are separated by semi-colon.
+      | e.g. dl,ul:usage;x,y:z
+      | where dl and ul are fields in usage JSONB column. x and y are fields in z JSONB column.""")
 
   val LocalDCParam = ConfigParameter[Option[String]](
     name = "spark.cassandra.connection.localDC",
@@ -422,6 +433,7 @@ object CassandraConnectorConf extends Logging {
 
   def fromSparkConf(conf: SparkConf) = {
     val localDC = conf.getOption(LocalDCParam.name)
+    val mergeableJsonColumnMapping = conf.getOption(MergeableJsonColumnMappingParam.name)
     val keepAlive = conf.getInt(KeepAliveMillisParam.name, KeepAliveMillisParam.default)
     val minReconnectionDelay = conf.getInt(MinReconnectionDelayParam.name, MinReconnectionDelayParam.default)
     val maxReconnectionDelay = conf.getInt(MaxReconnectionDelayParam.name, MaxReconnectionDelayParam.default)
@@ -441,6 +453,7 @@ object CassandraConnectorConf extends Logging {
     CassandraConnectorConf(
       contactInfo = getContactInfoFromSparkConf(conf),
       localDC = localDC,
+      mergeableJsonColumnMapping = mergeableJsonColumnMapping,
       keepAliveMillis = keepAlive,
       minReconnectionDelayMillis = minReconnectionDelay,
       maxReconnectionDelayMillis = maxReconnectionDelay,

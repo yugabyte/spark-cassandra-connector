@@ -27,8 +27,9 @@ class InternalRowWriter(
   val selectedColumns: IndexedSeq[ColumnRef]) extends RowWriter[InternalRow] {
 
   override val columnNames = selectedColumns.map(_.columnName)
+  val unknownColumnNameSet = columnNames.toSet.diff(table.columnNames.toSet)
   private val typeForSchemaIndex = schema.map(_.dataType).zipWithIndex.map(x => (x._2, x._1)).toMap
-  private val columns = columnNames.map(table.columnByName)
+  private val columns = columnNames.filter(!unknownColumnNameSet.contains(_)).map(table.columnByName)
   private val schemaRequestedIndexes = {
     val indexedSchema = schema.map(_.name).zipWithIndex.toMap
     selectedColumns.map(column => indexedSchema(column.selectedAs))
@@ -51,7 +52,11 @@ class InternalRowWriter(
     // Using while loop to avoid allocations in for each
     while (i < size) {
       val colValue = row.get(i, dataTypes(i))
-      buffer(i) = converters(i).apply(colValue)
+      if (i < converters.size) {
+        buffer(i) = converters(i).apply(colValue)
+      } else {
+        buffer(i) = colValue
+      }
       i += 1
     }
   }

@@ -41,8 +41,7 @@ case class SomeColumns(columns: ColumnRef*) extends ColumnSelector {
         case other => Seq(other)
       }
     }
-    if (missing.nonEmpty) throw new NoSuchElementException(
-      s"Columns not found in table ${table.name}: ${missing.mkString(", ")}")
+    // The missing columns are candidates for fields of mergeable JSONB column
 
     columns.toIndexedSeq
   }
