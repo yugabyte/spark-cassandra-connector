@@ -100,6 +100,7 @@ class TableWriter[T] private (
     def quotedColumnNames(columns: Seq[ColumnDef]) = columns.map(_.columnName).map(quote)
     val setCounterColumnsClause = quotedColumnNames(counterColumns).map(c => s"$c = $c + :$c")
     var setClause = ""
+    var optionalClause = ""
     if (connector.conf.mergeableJsonColumnMapping != None) {
       // parse the mapping and populate fieldToColMap
       var fieldToColMap:scala.collection.mutable.Map[String, String] = scala.collection.mutable.Map.empty
@@ -122,6 +123,7 @@ class TableWriter[T] private (
         val colName = fieldToColMap(name)
         s"$colName->'$name' = :$quotedName"
       }
+      if (writeConf.ignoreNulls) optionalClause = "WITH options = {'ignore_null_jsonb_attributes': true}"
       setClause = (setNonCounterColumnsClause ++ setCounterColumnsClause ++ jsonColumnsClause).mkString(", ")
     } else {
       if (unknownColumnNameSet.nonEmpty) {
@@ -131,7 +133,7 @@ class TableWriter[T] private (
     }
     val whereClause = quotedColumnNames(primaryKey).map(c => s"$c = :$c").mkString(" AND ")
 
-    s"UPDATE ${quote(keyspaceName)}.${quote(tableName)} SET $setClause WHERE $whereClause"
+    s"UPDATE ${quote(keyspaceName)}.${quote(tableName)} SET $setClause WHERE $whereClause $optionalClause"
   }
 
   private val isCounterUpdate =

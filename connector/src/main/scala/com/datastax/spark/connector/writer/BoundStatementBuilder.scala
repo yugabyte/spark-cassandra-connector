@@ -108,7 +108,7 @@ private[connector] class BoundStatementBuilder[T](
       val columnName = columnNames(i)
       val columnType = columnTypes(i)
       var columnValue = converter.convert(buffer(i))
-      if (columnValue == null && !ignoreNulls && internalWriter != null) {
+      if (columnValue == null && internalWriter != null) {
         if (internalWriter.unknownColumnNameSet.contains(columnName)) {
           // plugin 'null' for missing jsonb field value
           columnValue = "null"
