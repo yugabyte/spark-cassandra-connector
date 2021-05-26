@@ -31,6 +31,7 @@ case class WriteConf(
   consistencyLevel: ConsistencyLevel = WriteConf.ConsistencyLevelParam.default,
   ifNotExists: Boolean = WriteConf.IfNotExistsParam.default,
   ignoreNulls: Boolean = WriteConf.IgnoreNullsParam.default,
+  quoteJsonValue: Boolean = WriteConf.ValueAsStringParam.default,
   parallelismLevel: Int = WriteConf.ParallelismLevelParam.default,
   throughputMiBPS: Option[Double] = WriteConf.ThroughputMiBPSParam.default,
   ttl: TTLOption = TTLOption.defaultValue,
@@ -120,6 +121,14 @@ object WriteConf {
         |this to true will cause all null values to be left as unset rather than bound. For
         |finer control see the CassandraOption class""".stripMargin)
 
+  val ValueAsStringParam = ConfigParameter[Boolean](
+    name = "spark.cassandra.json.quoteValueString",
+    section = ReferenceSection,
+    default = false,
+    description =
+      """ Whether the JSONB field value should be enclosed in double quotes (if the value is not already quoted).
+        |Default value is false""".stripMargin)
+
   val ParallelismLevelParam = ConfigParameter[Int] (
     name = "spark.cassandra.output.concurrent.writes",
     section = ReferenceSection,
@@ -178,6 +187,8 @@ object WriteConf {
 
     val ignoreNulls = conf.getBoolean(IgnoreNullsParam.name, IgnoreNullsParam.default)
 
+    val quoteJsonValue = conf.getBoolean(ValueAsStringParam.name, ValueAsStringParam.default)
+
     val batchSize = {
       val Number = "([0-9]+)".r
       batchSizeInRowsStr match {
@@ -228,6 +239,7 @@ object WriteConf {
       ttl = ttlOption,
       timestamp = timestampOption,
       ignoreNulls = ignoreNulls,
+      quoteJsonValue = quoteJsonValue,
       ifNotExists = ifNotExists)
   }
 

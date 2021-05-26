@@ -231,7 +231,8 @@ class TableWriter[T] private (
         rowWriter,
         stmt,
         protocolVersion = protocolVersion,
-        ignoreNulls = writeConf.ignoreNulls)
+        ignoreNulls = writeConf.ignoreNulls,
+        quoteJsonValue = writeConf.quoteJsonValue)
 
       val batchStmtBuilder = new BatchStatementBuilder(batchType, writeConf.consistencyLevel)
       val batchKeyGenerator = batchRoutingKey(session) _

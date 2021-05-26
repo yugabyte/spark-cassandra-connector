@@ -17,6 +17,7 @@ private[connector] class BoundStatementBuilder[T](
     val preparedStmt: PreparedStatement,
     val prefixVals: Seq[Any] = Seq.empty,
     val ignoreNulls: Boolean = false,
+    val quoteJsonValue: Boolean = false,
     val protocolVersion: ProtocolVersion) extends Logging {
 
   private val internalWriter = if (rowWriter.isInstanceOf[InternalRowWriter]) rowWriter.asInstanceOf[InternalRowWriter] else null
@@ -108,11 +109,21 @@ private[connector] class BoundStatementBuilder[T](
       val columnName = columnNames(i)
       val columnType = columnTypes(i)
       var columnValue = converter.convert(buffer(i))
+      var nullFillin = false
       if (columnValue == null && internalWriter != null) {
         if (internalWriter.unknownColumnNameSet.contains(columnName)) {
           // plugin 'null' for missing jsonb field value
           columnValue = "null"
+          nullFillin = true
         }
+      }
+      if (quoteJsonValue && columnValue != null && columnValue.isInstanceOf[String] &&
+          internalWriter.unknownColumnNameSet.contains(columnName)) {
+          var colVal = columnValue.asInstanceOf[String]
+          val firstChar = colVal.substring(0, 1)
+          if (firstChar != "\"" && !nullFillin) {
+            columnValue = "\"" + colVal + "\""
+          }
       }
       bindColumn(boundStatement, columnName, columnType, columnValue)
       val serializedValue = boundStatement.stmt.getBytesUnsafe(i)
