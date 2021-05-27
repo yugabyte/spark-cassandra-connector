@@ -24,6 +24,7 @@ case object NoAuthConf extends AuthConf {
 /** Performs plain-text password authentication. Use with `PasswordAuthenticator` in Cassandra. */
 case class PasswordAuthConf(user: String, password: String) extends AuthConf {
   override def authProvider: Option[AuthProvider] = Some(new ProgrammaticPlainTextAuthProvider(user, password))
+  override def toString() = "PasswordAuthConf(user: " + user + ")"
 }
 
 /** Obtains authentication configuration by reading  [[org.apache.spark.SparkConf SparkConf]] object. */
