@@ -72,8 +72,9 @@ private[connector] class BoundStatementBuilder[T](
     columnType: DataType,
     columnValue: AnyRef): Unit = {
 
-    if (columnValue == Unset || (ignoreNulls && columnValue == null)) {
-      //Do not bind
+    if (columnValue == Unset) {
+      // Do not bind.
+      // ignoreNulls is not considered here since CQL would raise 'Bind variable was not set' error
     } else {
       val codec = CodecRegistryUtil.codecFor(boundStatement.stmt.codecRegistry(),columnType, columnValue)
       boundStatement.update(s => s.set(columnName, columnValue, codec))
