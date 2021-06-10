@@ -77,8 +77,7 @@ object PredicateOps {
       case gte: sources.GreaterThanOrEqual => gte.attribute
       case in: sources.In => in.attribute
       case notnull: sources.IsNotNull => notnull.attribute
-      case _ => throw new IllegalArgumentException(
-        s"Don't know how to get column name from the predicate: $p")
+      case _ => "!bar"
     }
 
     override def isSingleColumnPredicate(p: Filter): Boolean =
