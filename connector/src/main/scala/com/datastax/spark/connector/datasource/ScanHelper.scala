@@ -93,11 +93,8 @@ object ScanHelper extends Logging {
 
     val columns = cqlQueryParts.selectedColumnRefs.map(_.cql).mkString(", ")
 
-    val (cql, values) = if (containsPartitionKey(tableDef, cqlQueryParts.whereClause)) {
-      ("", Seq.empty)
-    } else {
-      range.cql(partitionKeyStr(tableDef))
-    }
+    // Spark connector is partition aware. Hence we need to specify partition key
+    val (cql, values) = range.cql(partitionKeyStr(tableDef))
     val filter = (cql +: cqlQueryParts.whereClause.predicates).filter(_.nonEmpty).mkString(" AND ")
     val limitClause = limitToClause(cqlQueryParts.limitClause)
     val orderBy = cqlQueryParts.clusteringOrder.map(_.toCql(tableDef)).getOrElse("")
