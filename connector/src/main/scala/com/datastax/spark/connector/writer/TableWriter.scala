@@ -127,7 +127,10 @@ class TableWriter[T] private (
       setClause = (setNonCounterColumnsClause ++ setCounterColumnsClause ++ jsonColumnsClause).mkString(", ")
     } else {
       if (unknownColumnNameSet.nonEmpty) {
-        throw new IllegalArgumentException(s"JSON column mapping is missing")
+        val cols = unknownColumnNameSet.mkString(", ")
+        var verb = "do"
+        if (unknownColumnNameSet.size == 1) verb = "does"
+        throw new IllegalArgumentException(s"`$cols` $verb not exist in the table. Maybe you forgot to provide JSON column mapping.")
       }
       setClause = (setNonCounterColumnsClause ++ setCounterColumnsClause).mkString(", ")
     }
