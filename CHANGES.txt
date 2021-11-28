@@ -1,3 +1,8 @@
+
+3.1.0
+ * Updated Spark to 3.1.2 and commons-lang to 3.10
+ * Fixed crash in the DirectJoin caused by internal changes in Spark 3.1 (SPARKC-626)
+
 3.0.0-yb-1
  * Add load balancing policy for YugaByte
  * Support for jsonb columns
