@@ -35,6 +35,8 @@ case class CassandraTTL(child: Expression) extends CassandraMetadataFunction {
   override def dataType: DataType = IntegerType
 
   override def confParam: String = CassandraSourceRelation.TTLParam.name
+
+  override protected def withNewChildInternal(newChild: Expression): Expression = copy(newChild)
 }
 
 case class GetJsonObject(child: Expression) extends CassandraMetadataFunction {
@@ -45,6 +47,8 @@ case class GetJsonObject(child: Expression) extends CassandraMetadataFunction {
   override def dataType: DataType = StringType
 
   override def confParam: String = CassandraSourceRelation.GetJsonObjectParam.name
+
+  override protected def withNewChildInternal(newChild: Expression): Expression = copy(newChild)
 }
 
 case class CassandraWriteTime(child: Expression) extends CassandraMetadataFunction {
@@ -55,6 +59,8 @@ case class CassandraWriteTime(child: Expression) extends CassandraMetadataFuncti
   override def dataType: DataType = LongType
 
   override def confParam: String = CassandraSourceRelation.WriteTimeParam.name
+
+  override protected def withNewChildInternal(newChild: Expression): Expression = copy(newChild)
 }
 
 sealed trait PathInstruction
@@ -121,10 +127,12 @@ object CassandraMetadataFunction {
   def registerMetadataFunctions(session: SparkSession): Unit = {
     session.sessionState.functionRegistry.registerFunction(
       FunctionIdentifier("ttl"),
-      CassandraMetadataFunction.cassandraTTLFunctionBuilder)
+      new ExpressionInfo(getClass.getSimpleName, "ttl"),
+      CassandraMetadataFunction.cassandraTTLFunctionBuilder(_))
     session.sessionState.functionRegistry.registerFunction(
       FunctionIdentifier("writetime"),
-      CassandraMetadataFunction.cassandraWriteTimeFunctionBuilder)
+      new ExpressionInfo(getClass.getSimpleName, "writetime"),
+      CassandraMetadataFunction.cassandraWriteTimeFunctionBuilder(_))
   }
 
   val cassandraTTLFunctionDescriptor  = (
