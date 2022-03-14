@@ -95,7 +95,8 @@ object ScanHelper extends Logging {
 
     // Spark connector is partition aware. Hence we need to specify partition key
     val (cql, values) = range.cql(partitionKeyStr(tableDef))
-    val filter = (cql +: cqlQueryParts.whereClause.predicates).filter(_.nonEmpty).mkString(" AND ")
+    val filter = (cql +: cqlQueryParts.whereClause.predicates.map
+      {str => if (str.substring(0,1)=="`") {var s=str.substring(1); s.patch(s.lastIndexOf('`'), "", 1)} else str}).filter(_.nonEmpty).mkString(" AND ")
     val limitClause = limitToClause(cqlQueryParts.limitClause)
     val orderBy = cqlQueryParts.clusteringOrder.map(_.toCql(tableDef)).getOrElse("")
     val keyspaceName = fromInternal(tableDef.keyspaceName)
