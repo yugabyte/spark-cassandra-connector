@@ -1,6 +1,7 @@
 package com.datastax.spark.connector.cql
 
 import java.io.IOException
+import java.util.concurrent.TimeUnit;
 
 import com.datastax.oss.driver.api.core.`type`.{UserDefinedType => DriverUserDefinedType}
 import com.datastax.oss.driver.api.core.metadata.Metadata
@@ -404,7 +405,7 @@ object Schema extends Logging {
     def fetchSchema(metadata: => Metadata): Schema =
       Schema(fetchKeyspaces(metadata))
 
-    val scheme = fetchSchema(session.refreshSchema())
+    val scheme = fetchSchema(session.refreshSchemaWithTimeout(1, TimeUnit.MINUTES))
 
     logDebug(s"${scheme.keyspaces.size} keyspaces fetched: " +
       s"${scheme.keyspaces.map(_.keyspaceName).mkString("{", ",", "}")}")
