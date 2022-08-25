@@ -14,8 +14,9 @@ import com.datastax.spark.connector.{ColumnRef, JsonObject, RowCountRef, TTL, Wr
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.cassandra.CassandraSourceRelation.{AdditionalCassandraPushDownRulesParam, InClauseToJoinWithTableConversionThreshold}
 import org.apache.spark.sql.cassandra.{AnalyzedPredicates, Auto, BasicCassandraPredicatePushDown, CassandraPredicateRules, CassandraSourceRelation, DsePredicateRules, DseSearchOptimizationSetting, InClausePredicateRules, Off, On, SolrConstants, SolrPredicateRules}
+import org.apache.spark.sql.connector.distributions.{ClusteredDistribution, Distribution}
 import org.apache.spark.sql.connector.read._
-import org.apache.spark.sql.connector.read.partitioning.{ClusteredDistribution, Distribution, Partitioning}
+import org.apache.spark.sql.connector.read.partitioning.Partitioning
 import org.apache.spark.sql.sources.{EqualTo, Filter, In}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.util.CaseInsensitiveStringMap
@@ -329,11 +330,12 @@ case class CassandraPartitioning(partitionKeys: Array[String], numPartitions: In
     Currently we only satisfy distributions which rely on all partition key values having identical
     values. In the future we may be able to support some other distributions but Spark doesn't have
     means to support those atm 3.0
-  */
   override def satisfy(distribution: Distribution): Boolean = distribution match {
+    // cD.clusteredColumns doesn't exist in Spark 3.3
     case cD: ClusteredDistribution => partitionKeys.forall(cD.clusteredColumns.contains)
     case _ => false
   }
+  */
 }
 
 case class CassandraInJoin(
