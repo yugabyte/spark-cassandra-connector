@@ -73,7 +73,24 @@ private[connector] class CassandraPartitionGenerator[V, T <: Token[V]](
   def partitions: Seq[CassandraPartition[V, T]] = {
     // Try to get table-specific partition map from table metadata (for YugaByte).
     val partitionMap: NavigableMap[Integer, PartitionMetadata] = connector withClusterDo { cluster =>
-      cluster.getMetadata.getTableSplitMetadata(tableDef.keyspaceName, tableDef.tableName).getPartitionMap()
+      if (cluster == null) {
+        logWarning("ABS: cluster instance is null")
+        null
+      } else if (cluster.getMetadata == null) {
+        logWarning("ABS: cluster metadata is null")
+        null
+      } else if (tableDef == null) {
+        logWarning("ABS: tableDef is null")
+        null
+      } else {
+        val splitMetadata = cluster.getMetadata.getTableSplitMetadata(tableDef.keyspaceName, tableDef.tableName)
+        if (splitMetadata != null) {
+          splitMetadata.getPartitionMap()
+        } else {
+          logWarning(s"ABS: split metadata for ${tableDef.tableName} is null")
+          null
+        }
+      }
     }
 
     val tokenRanges : Seq[TokenRange] = if (partitionMap != null) {
@@ -160,6 +177,17 @@ object CassandraPartitionGenerator {
     splitCount: Int)(
     implicit tokenFactory: TokenFactory[V, T]): CassandraPartitionGenerator[V, T] = {
 
+    if (tableDef == null) {
+      import java.io.File
+      import java.nio.file.Files
+      import java.nio.charset.StandardCharsets
+      import scala.collection.mutable.StringBuilder
+      new Exception("ABS: tableDef is null").printStackTrace();
+      val stack = new StringBuilder("")
+      Thread.currentThread().getStackTrace.foreach(e => stack.append(e))
+      val file = new File("abs-debug-null-tabledef.log")
+      Files.write(file.toPath, stack.toString.getBytes(StandardCharsets.UTF_8))
+    }
     new CassandraPartitionGenerator(conn, tableDef, splitCount)(tokenFactory)
   }
 }
