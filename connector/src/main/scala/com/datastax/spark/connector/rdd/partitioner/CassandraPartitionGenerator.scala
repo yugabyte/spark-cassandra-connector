@@ -2,8 +2,7 @@ package com.datastax.spark.connector.rdd.partitioner
 
 import java.net.InetSocketAddress
 import java.util.NavigableMap
-import java.util.TreeMap;
-
+import java.util.TreeMap
 import com.datastax.oss.driver.api.core.CqlIdentifier
 import com.datastax.oss.driver.api.core.metadata.TokenMap
 import com.datastax.oss.driver.api.core.metadata.token.{TokenRange => DriverTokenRange}
@@ -115,17 +114,25 @@ private[connector] class CassandraPartitionGenerator[V, T <: Token[V]](
         new TokenRange(startToken, endToken, hosts, tokenFactory)
       }
       if (ranges.isEmpty) {
+        logWarning("Token ranges are empty, falling back to Cassandra's token ranges")
         describeRing
       } else {
-        ranges match {
-          case head #:: rest =>
-            // If the partition map is empty, fall back to Cassandra way of choosing ranges
-            if (head.replicas.isEmpty)
-              ranges = describeRing
+        // Check replicas for all tokenRanges
+        var foundEmpty = false
+        for (range <- ranges) {
+          if (range.replicas.isEmpty) {
+            logDebug("Empty replicas for range [start=" + range.start + ", end=" + range.end + "]")
+            foundEmpty = true
+          }
+        }
+        if (foundEmpty) {
+          logWarning("Found empty replicas for at least one token range, falling back to Cassandra's token ranges")
+          ranges = describeRing
         }
         ranges
       }
     } else {
+      logWarning("YugabyteDB partition map is missing, falling back to Cassandra's token ranges")
       // If YugaByte partition map is missing, default to Cassandra behavior.
       describeRing
     }
@@ -135,6 +142,7 @@ private[connector] class CassandraPartitionGenerator[V, T <: Token[V]](
         s"(${keyspaceName}.${tableDef.name}), are you trying to read a table view? Table views are not supported, " +
         s"see SPARKC-612.")
     val maxGroupSize = tokenRanges.size / endpointCount
+    logDebug("Token ranges = " + tokenRanges.size + ", endpointCount = " + endpointCount + ", splitCount = " + splitCount)
 
     val splitter = createTokenRangeSplitter
     val splits = splitter.split(tokenRanges, splitCount).toSeq
