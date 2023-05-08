@@ -121,9 +121,11 @@ private[connector] class BoundStatementBuilder[T](
       if (quoteJsonValue && columnValue != null && columnValue.isInstanceOf[String] &&
           internalWriter.unknownColumnNameSet.contains(columnName)) {
           var colVal = columnValue.asInstanceOf[String]
-          val firstChar = colVal.substring(0, 1)
-          if (firstChar != "\"" && !nullFillin) {
-            columnValue = "\"" + colVal + "\""
+          if (!colVal.isEmpty()) {
+            val firstChar = colVal.substring(0, 1)
+            if (firstChar != "\"" && !nullFillin) {
+              columnValue = "\"" + colVal + "\""
+            }
           }
       }
       bindColumn(boundStatement, columnName, columnType, columnValue)

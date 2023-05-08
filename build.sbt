@@ -23,6 +23,7 @@ ThisBuild / publishMavenStyle := true
 ThisBuild / publishTo := Publishing.Repository
 ThisBuild / scmInfo := Publishing.OurScmInfo
 ThisBuild / version := Publishing.Version
+ThisBuild / credentials += Credentials(Path.userHome / ".sbt" / ".sonatype_credentials")
 
 Global / resolvers ++= Seq(
   DefaultMavenRepository,
