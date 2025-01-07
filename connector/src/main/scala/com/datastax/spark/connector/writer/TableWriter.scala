@@ -137,6 +137,7 @@ class TableWriter[T] private (
     val whereClause = quotedColumnNames(primaryKey).map(c => s"$c = :$c").mkString(" AND ")
 
     logInfo(s"ABS: UPDATE ${quote(keyspaceName)}.${quote(tableName)} SET $setClause WHERE $whereClause $optionalClause")
+    Thread.currentThread().getStackTrace.foreach(ste => logInfo(s"    $ste"))
     s"UPDATE ${quote(keyspaceName)}.${quote(tableName)} SET $setClause WHERE $whereClause $optionalClause"
   }
 
