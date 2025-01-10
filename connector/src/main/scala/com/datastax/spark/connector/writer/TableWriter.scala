@@ -44,6 +44,10 @@ class TableWriter[T] private (
 
     val ifNotExistsSpec = if (writeConf.ifNotExists) "IF NOT EXISTS " else ""
 
+    s"INSERT INTO ${quote(keyspaceName)}.${quote(tableName)} ($columnSpec) VALUES ($valueSpec) $ifNotExistsSpec$optionsSpec".trim
+  }
+
+  private lazy val optionsSpec: String = {
     val ttlSpec = writeConf.ttl match {
       case TTLOption(PerRowWriteOptionValue(placeholder)) => Some(s"""TTL :$placeholder""")
       case TTLOption(StaticWriteOptionValue(value)) => Some(s"TTL $value")
@@ -57,9 +61,7 @@ class TableWriter[T] private (
     }
 
     val options = List(ttlSpec, timestampSpec).flatten
-    val optionsSpec = if (options.nonEmpty) s"USING ${options.mkString(" AND ")}" else ""
-
-    s"INSERT INTO ${quote(keyspaceName)}.${quote(tableName)} ($columnSpec) VALUES ($valueSpec) $ifNotExistsSpec$optionsSpec".trim
+    if (options.nonEmpty) s"USING ${options.mkString(" AND ")}" else ""
   }
 
   private def deleteQueryTemplate(deleteColumns: ColumnSelector): String = {
@@ -136,7 +138,7 @@ class TableWriter[T] private (
     }
     val whereClause = quotedColumnNames(primaryKey).map(c => s"$c = :$c").mkString(" AND ")
 
-    s"UPDATE ${quote(keyspaceName)}.${quote(tableName)} SET $setClause WHERE $whereClause $optionalClause"
+    s"UPDATE ${quote(keyspaceName)}.${quote(tableName)} $optionsSpec SET $setClause WHERE $whereClause $optionalClause"
   }
 
   private val isCounterUpdate =
