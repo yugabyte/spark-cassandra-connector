@@ -5,7 +5,7 @@ object Versions {
   val CommonsLang3    = "3.10"
   val Paranamer       = "2.8"
 
-  val DataStaxJavaDriver = "4.6.0-yb-12"
+  val DataStaxJavaDriver = "4.19.0-yb-1"
 
   val ScalaCheck      = "1.14.0"
   val ScalaTest       = "3.0.8"
